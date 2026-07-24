@@ -1,0 +1,87 @@
+import 'package:flutter/material.dart';
+import '../models/item.dart';
+import '../services/storage_service.dart';
+
+class MenuProvider with ChangeNotifier {
+  final StorageService _storageService = StorageService();
+
+  List<MenuItem> _items = [];
+  String _selectedCategory = 'All';
+  String _searchQuery = '';
+  bool _isLoading = false;
+
+  List<MenuItem> get items => _items;
+  String get selectedCategory => _selectedCategory;
+  String get searchQuery => _searchQuery;
+  bool get isLoading => _isLoading;
+
+  List<String> get categories => [
+        'All',
+        'Special Chai',
+        'Cold Teas',
+        'Green & Herbal',
+        'Snacks & Bites',
+        'Desserts',
+      ];
+
+  List<MenuItem> get filteredItems {
+    return _items.where((item) {
+      final matchesCategory = _selectedCategory == 'All' || item.category == _selectedCategory;
+      final matchesSearch = item.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          item.itemCode.toLowerCase().contains(_searchQuery.toLowerCase());
+      return matchesCategory && matchesSearch;
+    }).toList();
+  }
+
+  MenuProvider() {
+    loadMenuItems();
+  }
+
+  Future<void> loadMenuItems() async {
+    _isLoading = true;
+    notifyListeners();
+    _items = await _storageService.getMenuItems();
+    _isLoading = false;
+    notifyListeners();
+  }
+
+  void selectCategory(String category) {
+    _selectedCategory = category;
+    notifyListeners();
+  }
+
+  void setSearchQuery(String query) {
+    _searchQuery = query;
+    notifyListeners();
+  }
+
+  Future<void> addItem(MenuItem newItem) async {
+    _items.add(newItem);
+    await _storageService.saveMenuItems(_items);
+    notifyListeners();
+  }
+
+  Future<void> updateItem(MenuItem updatedItem) async {
+    final index = _items.indexWhere((i) => i.id == updatedItem.id);
+    if (index != -1) {
+      _items[index] = updatedItem;
+      await _storageService.saveMenuItems(_items);
+      notifyListeners();
+    }
+  }
+
+  Future<void> toggleAvailability(String itemId) async {
+    final index = _items.indexWhere((i) => i.id == itemId);
+    if (index != -1) {
+      _items[index] = _items[index].copyWith(isAvailable: !_items[index].isAvailable);
+      await _storageService.saveMenuItems(_items);
+      notifyListeners();
+    }
+  }
+
+  Future<void> deleteItem(String itemId) async {
+    _items.removeWhere((i) => i.id == itemId);
+    await _storageService.saveMenuItems(_items);
+    notifyListeners();
+  }
+}
