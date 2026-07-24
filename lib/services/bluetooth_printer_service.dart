@@ -146,15 +146,6 @@ class BluetoothPrinterService {
                 style: pw.TextStyle(fontSize: 8 * scale),
               ),
               pw.SizedBox(height: 4),
-              pw.Text(
-                config.address,
-                textAlign: pw.TextAlign.center,
-                style: pw.TextStyle(fontSize: 7 * scale),
-              ),
-              pw.Text(
-                'Phone: ${config.phone}',
-                style: pw.TextStyle(fontSize: 7 * scale),
-              ),
               if (config.gstin.isNotEmpty)
                 pw.Text(
                   'GSTIN: ${config.gstin}',
@@ -167,7 +158,7 @@ class BluetoothPrinterService {
               // Token Number (Resetting Daily)
               pw.Text(
                 'TOKEN NO: #${order.tokenNumber.toString().padLeft(3, '0')}',
-                style: pw.TextStyle(fontSize: 15 * scale, fontWeight: pw.FontWeight.bold),
+                style: pw.TextStyle(fontSize: 11 * scale, fontWeight: pw.FontWeight.bold),
               ),
               pw.SizedBox(height: 4),
               pw.Divider(thickness: 0.5, color: PdfColors.black),
@@ -267,16 +258,6 @@ class BluetoothPrinterService {
 
               if (showPrice) ...[
                 // Totals Breakdown
-                if (order.taxAmount > 0 && config.taxEnabled)
-                  pw.Row(
-                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                    children: [
-                      pw.Text('GST / Tax (${config.taxPercentage.toStringAsFixed(1)}%):',
-                          style: pw.TextStyle(fontSize: 7.5 * scale)),
-                      pw.Text('Rs.${order.taxAmount.toStringAsFixed(2)}',
-                          style: pw.TextStyle(fontSize: 7.5 * scale)),
-                    ],
-                  ),
                 if (order.discountAmount > 0)
                   pw.Row(
                     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
@@ -290,26 +271,20 @@ class BluetoothPrinterService {
                 pw.Divider(thickness: 1, color: PdfColors.black),
                 pw.SizedBox(height: 2),
 
-                // Final Amount
+                // Final Amount & Payment Mode in one line
                 pw.Row(
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
-                    pw.Text('TOTAL PAID:',
-                        style: pw.TextStyle(fontSize: 10 * scale, fontWeight: pw.FontWeight.bold)),
-                    pw.Text('Rs.${order.totalAmount.toStringAsFixed(2)}',
-                        style: pw.TextStyle(fontSize: 11 * scale, fontWeight: pw.FontWeight.bold)),
+                    pw.Text(
+                      showCustomer ? 'TOTAL PAID (${order.paymentMethod}):' : 'TOTAL PAID:',
+                      style: pw.TextStyle(fontSize: 9 * scale, fontWeight: pw.FontWeight.bold),
+                    ),
+                    pw.Text(
+                      'Rs.${order.totalAmount.toStringAsFixed(2)}',
+                      style: pw.TextStyle(fontSize: 10 * scale, fontWeight: pw.FontWeight.bold),
+                    ),
                   ],
                 ),
-                pw.SizedBox(height: 2),
-                if (showCustomer)
-                  pw.Row(
-                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                    children: [
-                      pw.Text('Payment Mode:', style: pw.TextStyle(fontSize: 7.5 * scale)),
-                      pw.Text(order.paymentMethod,
-                          style: pw.TextStyle(fontSize: 7.5 * scale, fontWeight: pw.FontWeight.bold)),
-                    ],
-                  ),
                 pw.SizedBox(height: 8),
                 pw.Divider(thickness: 0.5, color: PdfColors.grey400),
                 pw.SizedBox(height: 4),
@@ -374,15 +349,13 @@ class BluetoothPrinterService {
     // Normal size
     bytes.addAll([0x1D, 0x21, 0x00]);
     bytes.addAll('${config.tagline}\n'.codeUnits);
-    bytes.addAll('${config.address}\n'.codeUnits);
-    bytes.addAll('Ph: ${config.phone}\n'.codeUnits);
     bytes.addAll('--------------------------------\n'.codeUnits);
 
-    // Double height bold Token Number
+    // Bold Token Number (normal size)
     bytes.addAll([0x1B, 0x61, 0x01]); // center
-    bytes.addAll([0x1D, 0x21, 0x11]); // double size bold
+    bytes.addAll([0x1B, 0x45, 0x01]); // bold on
     bytes.addAll('TOKEN NO: #${order.tokenNumber.toString().padLeft(3, '0')}\n'.codeUnits);
-    bytes.addAll([0x1D, 0x21, 0x00]); // normal size
+    bytes.addAll([0x1B, 0x45, 0x00]); // bold off
     bytes.addAll('--------------------------------\n'.codeUnits);
 
     // Left align for order details
@@ -406,16 +379,14 @@ class BluetoothPrinterService {
     if (config.printPriceOnToken) {
       // Right align totals
       bytes.addAll([0x1B, 0x61, 0x02]);
-      if (order.taxAmount > 0 && config.taxEnabled) {
-        bytes.addAll('Tax: Rs.${order.taxAmount.toStringAsFixed(2)}\n'.codeUnits);
-      }
       // Bold total
       bytes.addAll([0x1B, 0x45, 0x01]); // bold on
-      bytes.addAll('TOTAL: Rs.${order.totalAmount.toStringAsFixed(2)}\n'.codeUnits);
-      bytes.addAll([0x1B, 0x45, 0x00]); // bold off
       if (config.printCustomerDetails) {
-        bytes.addAll('Paid via: ${order.paymentMethod}\n'.codeUnits);
+        bytes.addAll('TOTAL: Rs.${order.totalAmount.toStringAsFixed(2)} (${order.paymentMethod})\n'.codeUnits);
+      } else {
+        bytes.addAll('TOTAL: Rs.${order.totalAmount.toStringAsFixed(2)}\n'.codeUnits);
       }
+      bytes.addAll([0x1B, 0x45, 0x00]); // bold off
       bytes.addAll('--------------------------------\n'.codeUnits);
     }
 
