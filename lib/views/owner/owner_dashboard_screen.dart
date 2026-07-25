@@ -1264,16 +1264,49 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
                       style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
                     ),
                     subtitle: Text('$formattedDate • Paid via ${order.paymentMethod} (${order.orderType})'),
-                    trailing: OutlinedButton.icon(
-                      icon: const Icon(Icons.print_rounded, size: 16),
-                      label: const Text('Reprint'),
-                      style: OutlinedButton.styleFrom(foregroundColor: AppTheme.primaryAmber),
-                      onPressed: () {
-                        showDialog(
-                          context: context,
-                          builder: (_) => ReceiptPreviewDialog(order: order),
-                        );
-                      },
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        OutlinedButton.icon(
+                          icon: const Icon(Icons.print_rounded, size: 16),
+                          label: const Text('Reprint'),
+                          style: OutlinedButton.styleFrom(foregroundColor: AppTheme.primaryAmber),
+                          onPressed: () {
+                            showDialog(
+                              context: context,
+                              builder: (_) => ReceiptPreviewDialog(order: order),
+                            );
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
+                          tooltip: 'Delete Transaction',
+                          onPressed: () {
+                            showDialog(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                title: const Text('Delete Transaction'),
+                                content: Text('Are you sure you want to delete Bill No: ${order.billNumber}? This action cannot be undone.'),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(ctx),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  ElevatedButton(
+                                    style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+                                    onPressed: () {
+                                      sales.deleteOrder(order.id);
+                                      Navigator.pop(ctx);
+                                    },
+                                    child: const Text('Delete'),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ],
                     ),
                     children: [
                       Padding(

@@ -77,6 +77,14 @@ class FirestoreService {
     await batch.commit();
   }
 
+  Future<void> deleteOrder(String id) async {
+    try {
+      await _db.collection(_ordersCollection).doc(id).delete();
+    } catch (e) {
+      print('Firestore error deleting order: $e');
+    }
+  }
+
   Future<void> clearOrders() async {
     try {
       final snapshot = await _db.collection(_ordersCollection).get();

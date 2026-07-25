@@ -100,6 +100,13 @@ class SalesProvider with ChangeNotifier {
     }
   }
 
+  Future<void> deleteOrder(String orderId) async {
+    _orders.removeWhere((o) => o.id == orderId);
+    await _storageService.saveOrders(_orders);
+    await _firestoreService.deleteOrder(orderId);
+    notifyListeners();
+  }
+
   Future<void> clearAllOrders() async {
     _orders.clear();
     await _storageService.clearOrders();
