@@ -33,7 +33,7 @@ class AromaCafeApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => PrinterProvider()),
       ],
       child: MaterialApp(
-        title: 'Aroma Tea Cafe POS',
+        title: 'AROMAA Cafe POS',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
         home: const LoginScreen(),

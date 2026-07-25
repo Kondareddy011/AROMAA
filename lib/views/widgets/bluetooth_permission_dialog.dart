@@ -78,7 +78,7 @@ class BluetoothPermissionDialog extends StatelessWidget {
 
             // Explanation
             Text(
-              'Aroma Tea Cafe POS needs access to Bluetooth & Location to scan, pair, and print bills to your thermal receipt printer.',
+              'AROMAA Cafe POS needs access to Bluetooth & Location to scan, pair, and print bills to your thermal receipt printer.',
               textAlign: TextAlign.center,
               style: GoogleFonts.outfit(
                 fontSize: 13,

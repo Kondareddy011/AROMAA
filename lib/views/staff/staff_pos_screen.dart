@@ -84,7 +84,7 @@ class _StaffPOSScreenState extends State<StaffPOSScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'AROMA TEA CAFE',
+                  'AROMAA CAFE',
                   style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1),
                 ),
                 Text(
