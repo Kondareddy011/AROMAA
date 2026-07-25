@@ -16,11 +16,11 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  runApp(const AromaCafeApp());
+  runApp(const AromaaCafeApp());
 }
 
-class AromaCafeApp extends StatelessWidget {
-  const AromaCafeApp({super.key});
+class AromaaCafeApp extends StatelessWidget {
+  const AromaaCafeApp({super.key});
 
   @override
   Widget build(BuildContext context) {

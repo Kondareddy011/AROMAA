@@ -115,7 +115,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'AROMA OWNER PORTAL',
+                  'AROMAA OWNER PORTAL',
                   style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1),
                 ),
                 Text(
@@ -1071,7 +1071,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
 
       final String? path = await FilePicker.platform.saveFile(
         dialogTitle: 'Export $reportType Sales Report',
-        fileName: 'aroma_${reportType.toLowerCase().replaceAll(' ', '_')}_report_${DateFormat('yyyyMMdd').format(DateTime.now())}.csv',
+        fileName: 'aromaa_${reportType.toLowerCase().replaceAll(' ', '_')}_report_${DateFormat('yyyyMMdd').format(DateTime.now())}.csv',
         type: FileType.custom,
         allowedExtensions: ['csv'],
         bytes: bytes,
@@ -1152,7 +1152,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
 
       final String? path = await FilePicker.platform.saveFile(
         dialogTitle: 'Export $reportType Details',
-        fileName: 'aroma_${reportType.toLowerCase().replaceAll(' ', '_')}_details_${DateFormat('yyyyMMdd').format(DateTime.now())}.csv',
+        fileName: 'aromaa_${reportType.toLowerCase().replaceAll(' ', '_')}_details_${DateFormat('yyyyMMdd').format(DateTime.now())}.csv',
         type: FileType.custom,
         allowedExtensions: ['csv'],
         bytes: bytes,
