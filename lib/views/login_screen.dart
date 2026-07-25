@@ -53,24 +53,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   counterText: '',
                 ),
               ),
-              const SizedBox(height: 10),
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryAmber.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.info_outline, size: 16, color: AppTheme.primaryAmber),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Default Owner PIN is 1234',
-                      style: GoogleFonts.outfit(color: AppTheme.primaryAmber, fontSize: 12),
-                    ),
-                  ],
-                ),
-              ),
+
             ],
           ),
           actions: [
@@ -92,7 +75,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Incorrect PIN! Please try 1234'),
+                      content: Text('Incorrect PIN!'),
                       backgroundColor: Colors.redAccent,
                     ),
                   );
