@@ -959,6 +959,9 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
       int grandTotalQty = 0;
       String? lastDate;
 
+      // Track individual item quantities
+      final itemBreakdown = <String, int>{};
+
       for (var o in sorted) {
         final currentDateStr = DateFormat('dd-MM-yyyy').format(o.timestamp);
         if (lastDate != null && lastDate != currentDateStr) {
@@ -969,6 +972,11 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
         final itemsStr = o.items.map((i) => '${i.item.name} (${i.variant} x${i.quantity})').join('; ');
         final escapedItems = '"${itemsStr.replaceAll('"', '""')}"';
         final totalQty = o.items.fold<int>(0, (sum, i) => sum + i.quantity);
+
+        for (var i in o.items) {
+          final displayName = i.variant != 'Regular' ? '${i.item.name} (${i.variant})' : i.item.name;
+          itemBreakdown[displayName] = (itemBreakdown[displayName] ?? 0) + i.quantity;
+        }
         
         buffer.writeln('${o.tokenNumber},${o.paymentMethod},${o.totalAmount.toStringAsFixed(2)},$totalQty,$escapedItems');
         grandTotal += o.totalAmount;
@@ -976,6 +984,13 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
       }
 
       buffer.writeln('Total,,${grandTotal.toStringAsFixed(2)},$grandTotalQty,');
+      
+      // Separate list of items sold
+      buffer.writeln();
+      buffer.writeln('Item Wise Breakdown,,,,');
+      itemBreakdown.forEach((itemName, qty) {
+        buffer.writeln('$itemName :- $qty,,,,');
+      });
 
       final csvContent = buffer.toString();
       final bytes = utf8.encode(csvContent);
@@ -1024,6 +1039,9 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
       String? lastDate;
       int serialNo = 1;
 
+      // Track individual item quantities
+      final itemBreakdown = <String, int>{};
+
       for (var o in sorted) {
         final currentDateStr = DateFormat('dd-MM-yyyy').format(o.timestamp);
         if (lastDate != null && lastDate != currentDateStr) {
@@ -1034,6 +1052,11 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
         final itemsStr = o.items.map((i) => '${i.item.name} (${i.variant} x${i.quantity})').join('; ');
         final escapedItems = '"${itemsStr.replaceAll('"', '""')}"';
         final totalQty = o.items.fold<int>(0, (sum, i) => sum + i.quantity);
+
+        for (var i in o.items) {
+          final displayName = i.variant != 'Regular' ? '${i.item.name} (${i.variant})' : i.item.name;
+          itemBreakdown[displayName] = (itemBreakdown[displayName] ?? 0) + i.quantity;
+        }
         
         buffer.writeln('${o.tokenNumber},$serialNo,$totalQty,$escapedItems,${o.paymentMethod},${o.totalAmount.toStringAsFixed(2)}');
         serialNo++;
@@ -1042,6 +1065,13 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
       }
 
       buffer.writeln('Total,,$grandTotalQty,,,${grandTotal.toStringAsFixed(2)}');
+
+      // Separate list of items sold
+      buffer.writeln();
+      buffer.writeln('Item Wise Breakdown,,,,,');
+      itemBreakdown.forEach((itemName, qty) {
+        buffer.writeln('$itemName :- $qty,,,,,');
+      });
 
       final csvContent = buffer.toString();
       final bytes = utf8.encode(csvContent);
