@@ -751,12 +751,13 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
                       ),
                       const SizedBox(height: 16),
 
-                      // Image Upload & Preset Selection Buttons
+                      // Image Upload & Category Selection
                       Row(
                         children: [
                           Expanded(
+                            flex: 5,
                             child: OutlinedButton.icon(
-                              icon: const Icon(Icons.upload_file_rounded, size: 18),
+                              icon: const Icon(Icons.cloud_upload_rounded),
                               label: const Text('Upload File'),
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: AppTheme.primaryAmber,
@@ -773,45 +774,34 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
                             ),
                           ),
                           const SizedBox(width: 8),
-                          PopupMenuButton<String>(
-                            onSelected: (selectedUrl) {
-                              setState(() {
-                                imageCtrl.text = selectedUrl;
+                          Expanded(
+                            flex: 6,
+                            child: DropdownButtonFormField<String>(
+                              value: category,
+                              decoration: const InputDecoration(
+                                labelText: 'Category',
+                                contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              ),
+                              items: menuProvider.categories
+                                  .where((c) => c != 'All')
+                                  .map((c) => DropdownMenuItem(value: c, child: Text(c, style: GoogleFonts.outfit(fontSize: 13))))
+                                  .toList(),
+                              onChanged: (val) {
+                                if (val != null) setState(() => category = val);
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          IconButton(
+                            icon: const Icon(Icons.add_circle_rounded, color: AppTheme.primaryAmber, size: 28),
+                            onPressed: () {
+                              _showAddCategoryDialog(context, menuProvider, (newCat) {
+                                setState(() {
+                                  category = newCat;
+                                });
                               });
                             },
-                            itemBuilder: (context) {
-                              return demoPresets.entries.map((entry) {
-                                return PopupMenuItem<String>(
-                                  value: entry.value,
-                                  child: Row(
-                                    children: [
-                                      ClipRRect(
-                                        borderRadius: BorderRadius.circular(4),
-                                        child: Image.network(entry.value, width: 28, height: 28, fit: BoxFit.cover),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Text(entry.key, style: GoogleFonts.outfit(fontSize: 13)),
-                                    ],
-                                  ),
-                                );
-                              }).toList();
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                              decoration: BoxDecoration(
-                                color: AppTheme.cardSurface,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: AppTheme.dividerColor),
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.photo_library_rounded, size: 18, color: AppTheme.primaryAmber),
-                                  const SizedBox(width: 6),
-                                  Text('Presets', style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold)),
-                                  const Icon(Icons.arrow_drop_down),
-                                ],
-                              ),
-                            ),
+                            tooltip: 'Add Category',
                           ),
                         ],
                       ),
@@ -859,18 +849,6 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
                             ),
                           ),
                         ],
-                      ),
-                      const SizedBox(height: 12),
-                      DropdownButtonFormField<String>(
-                        value: category,
-                        decoration: const InputDecoration(labelText: 'Category'),
-                        items: menuProvider.categories
-                            .where((c) => c != 'All')
-                            .map((c) => DropdownMenuItem(value: c, child: Text(c)))
-                            .toList(),
-                        onChanged: (val) {
-                          if (val != null) setState(() => category = val);
-                        },
                       ),
                       const SizedBox(height: 12),
                       TextField(
@@ -925,6 +903,43 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
               ],
             );
           },
+        );
+      },
+    );
+  }
+
+  void _showAddCategoryDialog(BuildContext context, MenuProvider menuProvider, Function(String) onCategoryAdded) {
+    final catCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: Text('Add New Category', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+          content: TextField(
+            controller: catCtrl,
+            decoration: const InputDecoration(
+              labelText: 'Category Name',
+              hintText: 'e.g. Mocktails',
+            ),
+            autofocus: true,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final name = catCtrl.text.trim();
+                if (name.isNotEmpty) {
+                  await menuProvider.addCategory(name);
+                  onCategoryAdded(name);
+                }
+                if (ctx.mounted) Navigator.pop(ctx);
+              },
+              child: const Text('Add'),
+            ),
+          ],
         );
       },
     );

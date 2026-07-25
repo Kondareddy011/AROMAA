@@ -137,4 +137,28 @@ class FirestoreService {
       print('Firestore error saving token customization: $e');
     }
   }
+
+  Future<List<String>> getCustomCategories() async {
+    try {
+      final doc = await _db.collection(_settingsCollection).doc('custom_categories').get();
+      if (doc.exists && doc.data() != null) {
+        final list = doc.data()!['categories'] as List<dynamic>?;
+        return list?.map((e) => e.toString()).toList() ?? [];
+      }
+    } catch (e) {
+      print('Firestore error fetching custom categories: $e');
+    }
+    return [];
+  }
+
+  Future<void> saveCustomCategories(List<String> categories) async {
+    try {
+      await _db
+          .collection(_settingsCollection)
+          .doc('custom_categories')
+          .set({'categories': categories});
+    } catch (e) {
+      print('Firestore error saving custom categories: $e');
+    }
+  }
 }

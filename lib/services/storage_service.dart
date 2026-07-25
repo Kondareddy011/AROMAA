@@ -274,4 +274,16 @@ class StorageService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyTokenCustomization, jsonEncode(customization.toJson()));
   }
+
+  static const String _keyCategories = 'aroma_custom_categories';
+
+  Future<List<String>> getCustomCategories() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getStringList(_keyCategories) ?? [];
+  }
+
+  Future<void> saveCustomCategories(List<String> categories) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_keyCategories, categories);
+  }
 }

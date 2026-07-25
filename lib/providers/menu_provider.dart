@@ -17,6 +17,8 @@ class MenuProvider with ChangeNotifier {
   String get searchQuery => _searchQuery;
   bool get isLoading => _isLoading;
 
+  List<String> _customCategories = [];
+
   List<String> get categories => [
         'All',
         'Special Chai',
@@ -24,6 +26,7 @@ class MenuProvider with ChangeNotifier {
         'Green & Herbal',
         'Snacks & Bites',
         'Desserts',
+        ..._customCategories,
       ];
 
   List<MenuItem> get filteredItems {
@@ -42,6 +45,15 @@ class MenuProvider with ChangeNotifier {
   Future<void> loadMenuItems() async {
     _isLoading = true;
     notifyListeners();
+
+    // Load categories
+    final remoteCats = await _firestoreService.getCustomCategories();
+    if (remoteCats.isNotEmpty) {
+      _customCategories = remoteCats;
+      await _storageService.saveCustomCategories(_customCategories);
+    } else {
+      _customCategories = await _storageService.getCustomCategories();
+    }
     
     // Try to load from Firestore first
     final remoteItems = await _firestoreService.getMenuItems();
@@ -55,6 +67,19 @@ class MenuProvider with ChangeNotifier {
     
     _isLoading = false;
     notifyListeners();
+  }
+
+  Future<void> addCategory(String categoryName) async {
+    final nameTrimmed = categoryName.trim();
+    if (nameTrimmed.isEmpty) return;
+
+    final list = categories;
+    if (!list.contains(nameTrimmed)) {
+      _customCategories.add(nameTrimmed);
+      await _storageService.saveCustomCategories(_customCategories);
+      await _firestoreService.saveCustomCategories(_customCategories);
+      notifyListeners();
+    }
   }
 
   void selectCategory(String category) {
