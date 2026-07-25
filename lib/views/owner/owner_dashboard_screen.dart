@@ -948,31 +948,34 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
   Future<void> _exportSalesReportCsv(BuildContext context, List<OrderModel> orders, String reportType) async {
     try {
       final buffer = StringBuffer();
-      // CSV Headers: Token Number,Payment Type,Amount,Items Ordered
-      buffer.writeln('Token Number,Payment Type,Amount,Items Ordered');
+      // CSV Headers: Token Number,Payment Type,Amount,Items Sold,Items Ordered
+      buffer.writeln('Token Number,Payment Type,Amount,Items Sold,Items Ordered');
 
       // Sort chronologically
       final sorted = List<OrderModel>.from(orders);
       sorted.sort((a, b) => a.timestamp.compareTo(b.timestamp));
 
       double grandTotal = 0.0;
+      int grandTotalQty = 0;
       String? lastDate;
 
       for (var o in sorted) {
         final currentDateStr = DateFormat('dd-MM-yyyy').format(o.timestamp);
         if (lastDate != null && lastDate != currentDateStr) {
-          buffer.writeln('=== NEXT DAY: $currentDateStr ===,,,');
+          buffer.writeln('=== NEXT DAY: $currentDateStr ===,,,,');
         }
         lastDate = currentDateStr;
 
         final itemsStr = o.items.map((i) => '${i.item.name} (${i.variant} x${i.quantity})').join('; ');
         final escapedItems = '"${itemsStr.replaceAll('"', '""')}"';
+        final totalQty = o.items.fold<int>(0, (sum, i) => sum + i.quantity);
         
-        buffer.writeln('${o.tokenNumber},${o.paymentMethod},${o.totalAmount.toStringAsFixed(2)},$escapedItems');
+        buffer.writeln('${o.tokenNumber},${o.paymentMethod},${o.totalAmount.toStringAsFixed(2)},$totalQty,$escapedItems');
         grandTotal += o.totalAmount;
+        grandTotalQty += totalQty;
       }
 
-      buffer.writeln('Total,,${grandTotal.toStringAsFixed(2)},');
+      buffer.writeln('Total,,${grandTotal.toStringAsFixed(2)},$grandTotalQty,');
 
       final csvContent = buffer.toString();
       final bytes = utf8.encode(csvContent);
@@ -1009,33 +1012,36 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
   Future<void> _exportCardReportCsv(BuildContext context, List<OrderModel> orders, String reportType) async {
     try {
       final buffer = StringBuffer();
-      // CSV Headers: Token Number,Total Orders,Items Ordered,Payment Type,Total Amount
-      buffer.writeln('Token Number,Total Orders,Items Ordered,Payment Type,Total Amount');
+      // CSV Headers: Token Number,Total Orders,Items Sold,Items Ordered,Payment Type,Total Amount
+      buffer.writeln('Token Number,Total Orders,Items Sold,Items Ordered,Payment Type,Total Amount');
 
       // Sort chronologically
       final sorted = List<OrderModel>.from(orders);
       sorted.sort((a, b) => a.timestamp.compareTo(b.timestamp));
 
       double grandTotal = 0.0;
+      int grandTotalQty = 0;
       String? lastDate;
       int serialNo = 1;
 
       for (var o in sorted) {
         final currentDateStr = DateFormat('dd-MM-yyyy').format(o.timestamp);
         if (lastDate != null && lastDate != currentDateStr) {
-          buffer.writeln('=== NEXT DAY: $currentDateStr ===,,,,');
+          buffer.writeln('=== NEXT DAY: $currentDateStr ===,,,,,');
         }
         lastDate = currentDateStr;
 
         final itemsStr = o.items.map((i) => '${i.item.name} (${i.variant} x${i.quantity})').join('; ');
         final escapedItems = '"${itemsStr.replaceAll('"', '""')}"';
+        final totalQty = o.items.fold<int>(0, (sum, i) => sum + i.quantity);
         
-        buffer.writeln('${o.tokenNumber},$serialNo,$escapedItems,${o.paymentMethod},${o.totalAmount.toStringAsFixed(2)}');
+        buffer.writeln('${o.tokenNumber},$serialNo,$totalQty,$escapedItems,${o.paymentMethod},${o.totalAmount.toStringAsFixed(2)}');
         serialNo++;
         grandTotal += o.totalAmount;
+        grandTotalQty += totalQty;
       }
 
-      buffer.writeln('Total,,,,${grandTotal.toStringAsFixed(2)}');
+      buffer.writeln('Total,,$grandTotalQty,,,${grandTotal.toStringAsFixed(2)}');
 
       final csvContent = buffer.toString();
       final bytes = utf8.encode(csvContent);
