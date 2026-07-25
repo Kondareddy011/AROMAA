@@ -21,11 +21,6 @@ class MenuProvider with ChangeNotifier {
 
   List<String> get categories => [
         'All',
-        'Special Chai',
-        'Cold Teas',
-        'Green & Herbal',
-        'Snacks & Bites',
-        'Desserts',
         ..._customCategories,
       ];
 
@@ -53,6 +48,17 @@ class MenuProvider with ChangeNotifier {
       await _storageService.saveCustomCategories(_customCategories);
     } else {
       _customCategories = await _storageService.getCustomCategories();
+      if (_customCategories.isEmpty) {
+        _customCategories = [
+          'Special Chai',
+          'Cold Teas',
+          'Green & Herbal',
+          'Snacks & Bites',
+          'Desserts',
+        ];
+        await _storageService.saveCustomCategories(_customCategories);
+        await _firestoreService.saveCustomCategories(_customCategories);
+      }
     }
     
     // Try to load from Firestore first
