@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import '../models/order.dart';
 import '../models/business_profile.dart';
+import '../models/token_customization.dart';
+
 import '../services/storage_service.dart';
+import '../services/firestore_service.dart';
 
 class SalesProvider with ChangeNotifier {
   final StorageService _storageService = StorageService();
+  final FirestoreService _firestoreService = FirestoreService();
 
   List<OrderModel> _orders = [];
   bool _isLoading = false;
@@ -24,7 +28,16 @@ class SalesProvider with ChangeNotifier {
   Future<void> loadOrders() async {
     _isLoading = true;
     notifyListeners();
-    _orders = await _storageService.getOrders();
+    
+    // Try to load from Firestore first
+    final remoteOrders = await _firestoreService.getOrders();
+    if (remoteOrders.isNotEmpty) {
+      _orders = remoteOrders;
+      await _storageService.saveOrders(_orders); // Cache locally
+    } else {
+      _orders = await _storageService.getOrders();
+    }
+    
     // Sort descending by date
     _orders.sort((a, b) => b.timestamp.compareTo(a.timestamp));
     _isLoading = false;
@@ -32,26 +45,44 @@ class SalesProvider with ChangeNotifier {
   }
 
   Future<void> loadSettings() async {
-    _businessProfile = await _storageService.getBusinessProfile();
-    _tokenCustomization = await _storageService.getTokenCustomization();
+    // Try business profile from Firestore
+    final remoteProfile = await _firestoreService.getBusinessProfile();
+    if (remoteProfile != null) {
+      _businessProfile = remoteProfile;
+      await _storageService.saveBusinessProfile(remoteProfile);
+    } else {
+      _businessProfile = await _storageService.getBusinessProfile();
+    }
+
+    // Try token customization from Firestore
+    final remoteToken = await _firestoreService.getTokenCustomization();
+    if (remoteToken != null) {
+      _tokenCustomization = remoteToken;
+      await _storageService.saveTokenCustomization(remoteToken);
+    } else {
+      _tokenCustomization = await _storageService.getTokenCustomization();
+    }
     notifyListeners();
   }
 
   Future<void> updateBusinessProfile(BusinessProfile profile) async {
     _businessProfile = profile;
     await _storageService.saveBusinessProfile(profile);
+    await _firestoreService.saveBusinessProfile(profile);
     notifyListeners();
   }
 
   Future<void> updateTokenCustomization(TokenCustomization customization) async {
     _tokenCustomization = customization;
     await _storageService.saveTokenCustomization(customization);
+    await _firestoreService.saveTokenCustomization(customization);
     notifyListeners();
   }
 
   Future<void> addOrder(OrderModel newOrder) async {
     _orders.insert(0, newOrder);
     await _storageService.saveOrders(_orders);
+    await _firestoreService.saveOrder(newOrder);
     notifyListeners();
   }
 
@@ -64,6 +95,7 @@ class SalesProvider with ChangeNotifier {
       );
       _orders[index] = updatedOrder;
       await _storageService.saveOrders(_orders);
+      await _firestoreService.saveOrder(updatedOrder);
       notifyListeners();
     }
   }
@@ -71,6 +103,7 @@ class SalesProvider with ChangeNotifier {
   Future<void> clearAllOrders() async {
     _orders.clear();
     await _storageService.clearOrders();
+    await _firestoreService.clearOrders();
     notifyListeners();
   }
 

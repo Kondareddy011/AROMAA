@@ -113,7 +113,7 @@ class BluetoothPrinterService {
         ? PdfPageFormat.roll80
         : PdfPageFormat.roll57;
 
-    final dateFormat = DateFormat('dd MMM yyyy, hh:mm a');
+    final dateFormat = DateFormat('dd-MM-yyyy HH:mm');
     final formattedDate = dateFormat.format(order.timestamp);
 
     pdf.addPage(
@@ -126,186 +126,97 @@ class BluetoothPrinterService {
         ),
         build: (pw.Context context) {
           final scale = config.fontScale;
-          final showPrice = config.printPriceOnToken;
-          final showCustomer = config.printCustomerDetails;
 
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.center,
             children: [
-              // Header
+              // Cafe Name
               pw.Text(
                 config.cafeName,
                 style: pw.TextStyle(
-                  fontSize: 16 * scale,
+                  fontSize: 17 * scale,
                   fontWeight: pw.FontWeight.bold,
                 ),
               ),
-              pw.SizedBox(height: 2),
+              pw.SizedBox(height: 3),
+              // Tagline
               pw.Text(
                 config.tagline,
                 style: pw.TextStyle(fontSize: 8 * scale),
               ),
-              pw.SizedBox(height: 4),
-              if (config.gstin.isNotEmpty)
-                pw.Text(
-                  'GSTIN: ${config.gstin}',
-                  style: pw.TextStyle(fontSize: 7 * scale),
-                ),
               pw.SizedBox(height: 6),
+              
+              // Divider
               pw.Divider(thickness: 0.8, color: PdfColors.black),
               pw.SizedBox(height: 2),
 
-              // Token Number (Resetting Daily)
+              // Token Number
               pw.Text(
                 'TOKEN NO: #${order.tokenNumber.toString().padLeft(3, '0')}',
                 style: pw.TextStyle(fontSize: 11 * scale, fontWeight: pw.FontWeight.bold),
               ),
-              pw.SizedBox(height: 4),
-              pw.Divider(thickness: 0.5, color: PdfColors.black),
+              pw.SizedBox(height: 2),
+              
+              // Divider
+              pw.Divider(thickness: 0.8, color: PdfColors.black),
               pw.SizedBox(height: 2),
 
-              // Order Details Header
-              pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                children: [
-                  pw.Text('Date: $formattedDate', style: pw.TextStyle(fontSize: 7 * scale)),
-                ],
-              ),
-
-              pw.SizedBox(height: 4),
-              pw.Divider(thickness: 0.5, color: PdfColors.black),
-              pw.SizedBox(height: 2),
-
-              // Items Table Header
-              pw.Row(
-                children: [
-                  pw.Expanded(
-                    flex: 5,
-                    child: pw.Text('Item Description',
-                        style: pw.TextStyle(fontSize: 7 * scale, fontWeight: pw.FontWeight.bold)),
-                  ),
-                  pw.Expanded(
-                    flex: 2,
-                    child: pw.Text('Qty',
-                        textAlign: pw.TextAlign.center,
-                        style: pw.TextStyle(fontSize: 7 * scale, fontWeight: pw.FontWeight.bold)),
-                  ),
-                  if (showPrice) ...[
-                    pw.Expanded(
-                      flex: 2,
-                      child: pw.Text('Price',
-                          textAlign: pw.TextAlign.right,
-                          style: pw.TextStyle(fontSize: 7 * scale, fontWeight: pw.FontWeight.bold)),
-                    ),
-                    pw.Expanded(
-                      flex: 2,
-                      child: pw.Text('Amount',
-                          textAlign: pw.TextAlign.right,
-                          style: pw.TextStyle(fontSize: 7 * scale, fontWeight: pw.FontWeight.bold)),
-                    ),
-                  ],
-                ],
-              ),
-              pw.SizedBox(height: 2),
-              pw.Divider(thickness: 0.5, color: PdfColors.grey400),
-              pw.SizedBox(height: 2),
-
-              // Item Rows
-              ...order.items.map((item) {
-                return pw.Padding(
-                  padding: const pw.EdgeInsets.symmetric(vertical: 1.5),
-                  child: pw.Row(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      pw.Expanded(
-                        flex: 5,
-                        child: pw.Column(
-                          crossAxisAlignment: pw.CrossAxisAlignment.start,
-                          children: [
-                            pw.Text(item.item.name, style: pw.TextStyle(fontSize: 7.5 * scale)),
-                            if (item.variant != 'Regular')
-                              pw.Text('(${item.variant})',
-                                  style: pw.TextStyle(fontSize: 6 * scale, color: PdfColors.grey700)),
-                          ],
-                        ),
-                      ),
-                      pw.Expanded(
-                        flex: 2,
-                        child: pw.Text('${item.quantity}',
-                            textAlign: pw.TextAlign.center, style: pw.TextStyle(fontSize: 7.5 * scale)),
-                      ),
-                      if (showPrice) ...[
-                        pw.Expanded(
-                          flex: 2,
-                          child: pw.Text('Rs.${item.unitPrice.toStringAsFixed(0)}',
-                              textAlign: pw.TextAlign.right, style: pw.TextStyle(fontSize: 7.5 * scale)),
-                        ),
-                        pw.Expanded(
-                          flex: 2,
-                          child: pw.Text('Rs.${item.totalPrice.toStringAsFixed(0)}',
-                              textAlign: pw.TextAlign.right,
-                              style: pw.TextStyle(fontSize: 7.5 * scale, fontWeight: pw.FontWeight.bold)),
-                        ),
-                      ],
-                    ],
-                  ),
-                );
-              }),
-
-              pw.SizedBox(height: 4),
-              pw.Divider(thickness: 0.5, color: PdfColors.black),
-              pw.SizedBox(height: 2),
-
-              if (showPrice) ...[
-                // Totals Breakdown
-                if (order.discountAmount > 0)
-                  pw.Row(
-                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                    children: [
-                      pw.Text('Discount:', style: pw.TextStyle(fontSize: 7.5 * scale)),
-                      pw.Text('-Rs.${order.discountAmount.toStringAsFixed(2)}',
-                          style: pw.TextStyle(fontSize: 7.5 * scale)),
-                    ],
-                  ),
-                pw.SizedBox(height: 2),
-                pw.Divider(thickness: 1, color: PdfColors.black),
-                pw.SizedBox(height: 2),
-
-                // Final Amount & Payment Mode in one line
-                pw.Row(
-                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                  children: [
-                    pw.Text(
-                      showCustomer ? 'TOTAL PAID (${order.paymentMethod}):' : 'TOTAL PAID:',
-                      style: pw.TextStyle(fontSize: 9 * scale, fontWeight: pw.FontWeight.bold),
-                    ),
-                    pw.Text(
-                      'Rs.${order.totalAmount.toStringAsFixed(2)}',
-                      style: pw.TextStyle(fontSize: 10 * scale, fontWeight: pw.FontWeight.bold),
-                    ),
-                  ],
+              // Date
+              pw.Align(
+                alignment: pw.Alignment.centerLeft,
+                child: pw.Text(
+                  'Date: $formattedDate',
+                  style: pw.TextStyle(fontSize: 9 * scale),
                 ),
-                pw.SizedBox(height: 8),
-                pw.Divider(thickness: 0.5, color: PdfColors.grey400),
-                pw.SizedBox(height: 4),
-              ],
+              ),
+              pw.SizedBox(height: 2),
+              
+              // Divider
+              pw.Divider(thickness: 0.8, color: PdfColors.black),
+              pw.SizedBox(height: 4),
 
-              // Footer
+              // Items Ordered (formatted as "Item Name xQty - Rs.Amount")
+              pw.Align(
+                alignment: pw.Alignment.centerLeft,
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: order.items.map((item) {
+                    final name = item.variant != 'Regular'
+                        ? '${item.item.name} (${item.variant})'
+                        : item.item.name;
+                    return pw.Padding(
+                      padding: const pw.EdgeInsets.symmetric(vertical: 1.5),
+                      child: pw.Text(
+                        '$name x${item.quantity} - Rs.${item.totalPrice.toStringAsFixed(0)}',
+                        style: pw.TextStyle(fontSize: 9 * scale),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+
+              pw.SizedBox(height: 4),
+              // Divider
+              pw.Divider(thickness: 0.8, color: PdfColors.black),
+              pw.SizedBox(height: 2),
+
+              // Total Amount
+              pw.Text(
+                'TOTAL: Rs.${order.totalAmount.toStringAsFixed(2)} (${order.paymentMethod})',
+                style: pw.TextStyle(fontSize: 10 * scale, fontWeight: pw.FontWeight.bold),
+              ),
+              pw.SizedBox(height: 2),
+              
+              // Divider
+              pw.Divider(thickness: 0.8, color: PdfColors.black),
+              pw.SizedBox(height: 6),
+
+              // Footer Message
               pw.Text(
                 config.footerMessage,
                 textAlign: pw.TextAlign.center,
-                style: pw.TextStyle(fontSize: 7 * scale, fontStyle: pw.FontStyle.italic),
+                style: pw.TextStyle(fontSize: 8 * scale),
               ),
-              pw.SizedBox(height: 4),
-              pw.BarcodeWidget(
-                data: 'AROMA-${order.billNumber}',
-                barcode: pw.Barcode.code128(),
-                width: 120,
-                height: 24,
-                drawText: false,
-              ),
-              pw.SizedBox(height: 2),
-              pw.Text('*** Clean & Hygienic Tea ***', style: pw.TextStyle(fontSize: 6 * scale)),
             ],
           );
         },
@@ -338,27 +249,27 @@ class BluetoothPrinterService {
     // ESC @ - Initialize printer
     bytes.addAll([0x1B, 0x40]);
 
-    // ESC a 1 - Center align
+    // Center align for Header
     bytes.addAll([0x1B, 0x61, 0x01]);
 
-    // Double height bold title
-    bytes.addAll([0x1D, 0x21, 0x11]);
-    bytes.addAll(config.cafeName.codeUnits);
-    bytes.add(0x0A); // newline
+    // Bold large title
+    bytes.addAll([0x1D, 0x21, 0x11]); // double width, double height
+    bytes.addAll([0x1B, 0x45, 0x01]); // bold on
+    bytes.addAll('${config.cafeName}\n'.codeUnits);
+    bytes.addAll([0x1B, 0x45, 0x00]); // bold off
+    bytes.addAll([0x1D, 0x21, 0x00]); // reset size to normal
 
-    // Normal size
-    bytes.addAll([0x1D, 0x21, 0x00]);
+    // Tagline
     bytes.addAll('${config.tagline}\n'.codeUnits);
     bytes.addAll('--------------------------------\n'.codeUnits);
 
-    // Bold Token Number (normal size)
-    bytes.addAll([0x1B, 0x61, 0x01]); // center
+    // Bold Token Number
     bytes.addAll([0x1B, 0x45, 0x01]); // bold on
     bytes.addAll('TOKEN NO: #${order.tokenNumber.toString().padLeft(3, '0')}\n'.codeUnits);
     bytes.addAll([0x1B, 0x45, 0x00]); // bold off
     bytes.addAll('--------------------------------\n'.codeUnits);
 
-    // Left align for order details
+    // Left align for Date
     bytes.addAll([0x1B, 0x61, 0x00]);
     final formattedDate = DateFormat('dd-MM-yyyy HH:mm').format(order.timestamp);
     bytes.addAll('Date: $formattedDate\n'.codeUnits);
@@ -366,32 +277,22 @@ class BluetoothPrinterService {
 
     // Items
     for (var item in order.items) {
-      final line = '${item.item.name} x${item.quantity}';
-      if (config.printPriceOnToken) {
-        final priceStr = 'Rs.${item.totalPrice.toStringAsFixed(0)}';
-        bytes.addAll('$line - $priceStr\n'.codeUnits);
-      } else {
-        bytes.addAll('$line\n'.codeUnits);
-      }
+      final name = item.variant != 'Regular'
+          ? '${item.item.name} (${item.variant})'
+          : item.item.name;
+      final line = '$name x${item.quantity} - Rs.${item.totalPrice.toStringAsFixed(0)}\n';
+      bytes.addAll(line.codeUnits);
     }
     bytes.addAll('--------------------------------\n'.codeUnits);
 
-    if (config.printPriceOnToken) {
-      // Right align totals
-      bytes.addAll([0x1B, 0x61, 0x02]);
-      // Bold total
-      bytes.addAll([0x1B, 0x45, 0x01]); // bold on
-      if (config.printCustomerDetails) {
-        bytes.addAll('TOTAL: Rs.${order.totalAmount.toStringAsFixed(2)} (${order.paymentMethod})\n'.codeUnits);
-      } else {
-        bytes.addAll('TOTAL: Rs.${order.totalAmount.toStringAsFixed(2)}\n'.codeUnits);
-      }
-      bytes.addAll([0x1B, 0x45, 0x00]); // bold off
-      bytes.addAll('--------------------------------\n'.codeUnits);
-    }
-
-    // Center align footer
+    // Center align for Total
     bytes.addAll([0x1B, 0x61, 0x01]);
+    bytes.addAll([0x1B, 0x45, 0x01]); // bold on
+    bytes.addAll('TOTAL: Rs.${order.totalAmount.toStringAsFixed(2)} (${order.paymentMethod})\n'.codeUnits);
+    bytes.addAll([0x1B, 0x45, 0x00]); // bold off
+    bytes.addAll('--------------------------------\n'.codeUnits);
+
+    // Footer
     bytes.addAll('${config.footerMessage}\n\n\n'.codeUnits);
 
     // GS V 66 0 - Paper cut command

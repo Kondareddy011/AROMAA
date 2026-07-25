@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import '../models/item.dart';
 import '../services/storage_service.dart';
+import '../services/firestore_service.dart';
 
 class MenuProvider with ChangeNotifier {
   final StorageService _storageService = StorageService();
+  final FirestoreService _firestoreService = FirestoreService();
 
   List<MenuItem> _items = [];
   String _selectedCategory = 'All';
@@ -40,7 +42,17 @@ class MenuProvider with ChangeNotifier {
   Future<void> loadMenuItems() async {
     _isLoading = true;
     notifyListeners();
-    _items = await _storageService.getMenuItems();
+    
+    // Try to load from Firestore first
+    final remoteItems = await _firestoreService.getMenuItems();
+    if (remoteItems.isNotEmpty) {
+      _items = remoteItems;
+      await _storageService.saveMenuItems(_items); // Cache locally
+    } else {
+      // Fallback to local storage
+      _items = await _storageService.getMenuItems();
+    }
+    
     _isLoading = false;
     notifyListeners();
   }
@@ -58,6 +70,7 @@ class MenuProvider with ChangeNotifier {
   Future<void> addItem(MenuItem newItem) async {
     _items.add(newItem);
     await _storageService.saveMenuItems(_items);
+    await _firestoreService.saveMenuItem(newItem);
     notifyListeners();
   }
 
@@ -66,6 +79,7 @@ class MenuProvider with ChangeNotifier {
     if (index != -1) {
       _items[index] = updatedItem;
       await _storageService.saveMenuItems(_items);
+      await _firestoreService.saveMenuItem(updatedItem);
       notifyListeners();
     }
   }
@@ -75,6 +89,7 @@ class MenuProvider with ChangeNotifier {
     if (index != -1) {
       _items[index] = _items[index].copyWith(isAvailable: !_items[index].isAvailable);
       await _storageService.saveMenuItems(_items);
+      await _firestoreService.saveMenuItem(_items[index]);
       notifyListeners();
     }
   }
@@ -82,6 +97,7 @@ class MenuProvider with ChangeNotifier {
   Future<void> deleteItem(String itemId) async {
     _items.removeWhere((i) => i.id == itemId);
     await _storageService.saveMenuItems(_items);
+    await _firestoreService.deleteMenuItem(itemId);
     notifyListeners();
   }
 }

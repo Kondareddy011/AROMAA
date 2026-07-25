@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
@@ -9,6 +10,9 @@ import 'package:provider/provider.dart';
 
 import '../../models/item.dart';
 import '../../models/order.dart';
+import '../../models/business_profile.dart';
+import '../../models/token_customization.dart';
+
 import '../../providers/auth_provider.dart';
 import '../../providers/menu_provider.dart';
 import '../../providers/printer_provider.dart';
@@ -27,12 +31,21 @@ class OwnerDashboardScreen extends StatefulWidget {
 
 class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
     _tabController.addListener(_onTabChanged);
+
+    // Setup 5-second auto-refresh timer
+    _refreshTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      if (mounted) {
+        Provider.of<SalesProvider>(context, listen: false).loadOrders();
+        Provider.of<MenuProvider>(context, listen: false).loadMenuItems();
+      }
+    });
   }
 
   void _onTabChanged() {
@@ -60,6 +73,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
 
   @override
   void dispose() {
+    _refreshTimer?.cancel();
     _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     super.dispose();
@@ -140,9 +154,16 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
   Widget _buildSalesAnalyticsTab(BuildContext context) {
     final sales = Provider.of<SalesProvider>(context);
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
+    return RefreshIndicator(
+      onRefresh: () async {
+        await sales.loadOrders();
+        await sales.loadSettings();
+      },
+      color: AppTheme.primaryAmber,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(20),
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
@@ -346,8 +367,9 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildMetricCard({
     required String title,
@@ -483,114 +505,119 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
 
           // Menu Items List
           Expanded(
-            child: ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: menuProvider.filteredItems.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 10),
-              itemBuilder: (context, index) {
-                final item = menuProvider.filteredItems[index];
-                return Card(
-                  child: ListTile(
-                    leading: ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: SizedBox(
-                        width: 48,
-                        height: 48,
-                        child: Image.network(
-                          item.effectiveImageUrl,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
-                            color: AppTheme.cardSurface,
-                            child: const Icon(Icons.coffee_rounded, size: 24, color: AppTheme.primaryAmber),
+            child: RefreshIndicator(
+              onRefresh: () => menuProvider.loadMenuItems(),
+              color: AppTheme.primaryAmber,
+              child: ListView.separated(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(16),
+                itemCount: menuProvider.filteredItems.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 10),
+                itemBuilder: (context, index) {
+                  final item = menuProvider.filteredItems[index];
+                  return Card(
+                    child: ListTile(
+                      leading: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: SizedBox(
+                          width: 48,
+                          height: 48,
+                          child: Image.network(
+                            item.effectiveImageUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              color: AppTheme.cardSurface,
+                              child: const Icon(Icons.coffee_rounded, size: 24, color: AppTheme.primaryAmber),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    title: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryAmber.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(6),
+                      title: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryAmber.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              item.itemCode,
+                              style: GoogleFonts.outfit(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.primaryAmber,
+                              ),
+                            ),
                           ),
-                          child: Text(
-                            item.itemCode,
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              item.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                      subtitle: Text(
+                        '${item.category} • ${item.description}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Rs.${item.price.toStringAsFixed(0)}',
                             style: GoogleFonts.outfit(
-                              fontSize: 10,
+                              fontSize: 16,
                               fontWeight: FontWeight.bold,
                               color: AppTheme.primaryAmber,
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            item.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+                          const SizedBox(width: 8),
+                          Switch(
+                            value: item.isAvailable,
+                            activeColor: AppTheme.primaryAmber,
+                            onChanged: (_) => menuProvider.toggleAvailability(item.id),
                           ),
-                        ),
-                      ],
-                    ),
-                    subtitle: Text(
-                      '${item.category} • ${item.description}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'Rs.${item.price.toStringAsFixed(0)}',
-                          style: GoogleFonts.outfit(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.primaryAmber,
+                          IconButton(
+                            icon: const Icon(Icons.edit_outlined, color: Colors.blueAccent),
+                            onPressed: () => _showAddEditItemDialog(context, existingItem: item),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Switch(
-                          value: item.isAvailable,
-                          activeColor: AppTheme.primaryAmber,
-                          onChanged: (_) => menuProvider.toggleAvailability(item.id),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.edit_outlined, color: Colors.blueAccent),
-                          onPressed: () => _showAddEditItemDialog(context, existingItem: item),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                          onPressed: () {
-                            showDialog(
-                              context: context,
-                              builder: (ctx) => AlertDialog(
-                                title: const Text('Confirm Item Deletion'),
-                                content: Text('Are you sure you want to remove "${item.name}" from the menu?'),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(ctx),
-                                    child: const Text('Cancel'),
-                                  ),
-                                  ElevatedButton(
-                                    style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-                                    onPressed: () {
-                                      menuProvider.deleteItem(item.id);
-                                      Navigator.pop(ctx);
-                                    },
-                                    child: const Text('Delete'),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                      ],
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                            onPressed: () {
+                              showDialog(
+                                context: context,
+                                builder: (ctx) => AlertDialog(
+                                  title: const Text('Confirm Item Deletion'),
+                                  content: Text('Are you sure you want to remove "${item.name}" from the menu?'),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(ctx),
+                                      child: const Text('Cancel'),
+                                    ),
+                                    ElevatedButton(
+                                      style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+                                      onPressed: () {
+                                        menuProvider.deleteItem(item.id);
+                                        Navigator.pop(ctx);
+                                      },
+                                      child: const Text('Delete'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
           ),
         ],
@@ -870,7 +897,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
     );
   }
 
-  Future<void> _exportSalesReportCsv(BuildContext context, List<OrderModel> orders) async {
+  Future<void> _exportSalesReportCsv(BuildContext context, List<OrderModel> orders, String reportType) async {
     try {
       final buffer = StringBuffer();
       // CSV Headers
@@ -889,8 +916,8 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
       final bytes = utf8.encode(csvContent);
 
       final String? path = await FilePicker.platform.saveFile(
-        dialogTitle: 'Export Sales Report',
-        fileName: 'aroma_sales_report_${DateFormat('yyyyMMdd').format(DateTime.now())}.csv',
+        dialogTitle: 'Export $reportType Sales Report',
+        fileName: 'aroma_${reportType.toLowerCase().replaceAll(' ', '_')}_report_${DateFormat('yyyyMMdd').format(DateTime.now())}.csv',
         type: FileType.custom,
         allowedExtensions: ['csv'],
         bytes: bytes,
@@ -902,7 +929,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Sales report exported successfully to: $path'),
+              content: Text('$reportType report exported successfully to: $path'),
               backgroundColor: AppTheme.matchaGreen,
             ),
           );
@@ -921,159 +948,236 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
     final sales = Provider.of<SalesProvider>(context);
 
     if (sales.orders.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryAmber.withValues(alpha: 0.15),
-                  shape: BoxShape.circle,
+      return RefreshIndicator(
+        onRefresh: () => sales.loadOrders(),
+        color: AppTheme.primaryAmber,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: SizedBox(
+            height: MediaQuery.of(context).size.height * 0.7,
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryAmber.withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.receipt_long_outlined, size: 54, color: AppTheme.primaryAmber),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      'No Bills Issued Yet',
+                      style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'When counter staff members issue bills from the Staff POS, all transaction records & printed receipts will appear here in real-time.',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.outfit(fontSize: 13, color: AppTheme.textSecondary),
+                    ),
+                  ],
                 ),
-                child: const Icon(Icons.receipt_long_outlined, size: 54, color: AppTheme.primaryAmber),
               ),
-              const SizedBox(height: 20),
-              Text(
-                'No Bills Issued Yet',
-                style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'When counter staff members issue bills from the Staff POS, all transaction records & printed receipts will appear here in real-time.',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.outfit(fontSize: 13, color: AppTheme.textSecondary),
-              ),
-            ],
+            ),
           ),
         ),
       );
     }
 
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          color: AppTheme.cardBg,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Total Transactions (${sales.orders.length})',
-                style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 14),
-              ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.download_rounded, size: 16),
-                    label: const Text('Download CSV Report', style: TextStyle(fontSize: 12)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryAmber,
-                      foregroundColor: Colors.black,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    ),
-                    onPressed: () => _exportSalesReportCsv(context, sales.orders),
-                  ),
-                  const SizedBox(width: 8),
-                  TextButton.icon(
-                    icon: const Icon(Icons.delete_sweep_rounded, size: 18, color: Colors.redAccent),
-                    label: const Text('Reset Sales History', style: TextStyle(color: Colors.redAccent, fontSize: 12)),
-                    onPressed: () {
-                      showDialog(
-                        context: context,
-                        builder: (ctx) => AlertDialog(
-                          title: const Text('Clear All Sales History'),
-                          content: const Text('Are you sure you want to reset all transaction audit logs? This action cannot be undone.'),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(ctx),
-                              child: const Text('Cancel'),
-                            ),
-                            ElevatedButton(
-                              style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-                              onPressed: () {
-                                sales.clearAllOrders();
-                                Navigator.pop(ctx);
-                              },
-                              child: const Text('Clear History'),
+    return RefreshIndicator(
+      onRefresh: () => sales.loadOrders(),
+      color: AppTheme.primaryAmber,
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            color: AppTheme.cardBg,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Total Transactions (${sales.orders.length})',
+                  style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    PopupMenuButton<String>(
+                      tooltip: 'Download Sales CSV',
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryAmber,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.download_rounded, size: 16, color: Colors.black),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Download CSV',
+                              style: GoogleFonts.outfit(
+                                fontSize: 12,
+                                color: Colors.black,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ],
                         ),
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: sales.orders.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 10),
-            itemBuilder: (context, index) {
-              final order = sales.orders[index];
-              final formattedDate = DateFormat('dd MMM yyyy, hh:mm a').format(order.timestamp);
-
-              return Card(
-                child: ExpansionTile(
-                  leading: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryAmber.withValues(alpha: 0.15),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.receipt_long_rounded, color: AppTheme.primaryAmber),
-                  ),
-                  title: Text(
-                    'Bill No: ${order.billNumber} • Rs.${order.totalAmount.toStringAsFixed(0)}',
-                    style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
-                  ),
-                  subtitle: Text('$formattedDate • Paid via ${order.paymentMethod} (${order.orderType})'),
-                  trailing: OutlinedButton.icon(
-                    icon: const Icon(Icons.print_rounded, size: 16),
-                    label: const Text('Reprint'),
-                    style: OutlinedButton.styleFrom(foregroundColor: AppTheme.primaryAmber),
-                    onPressed: () {
-                      showDialog(
-                        context: context,
-                        builder: (_) => ReceiptPreviewDialog(order: order),
-                      );
-                    },
-                  ),
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Item Breakdown:', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13)),
-                          const SizedBox(height: 6),
-                          ...order.items.map((i) {
-                            return Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text('${i.item.name} x${i.quantity}', style: GoogleFonts.outfit(fontSize: 12)),
-                                Text('Rs.${i.totalPrice.toStringAsFixed(0)}', style: GoogleFonts.outfit(fontSize: 12)),
-                              ],
-                            );
-                          }),
-                        ],
                       ),
+                      onSelected: (value) {
+                        final now = DateTime.now();
+                        List<OrderModel> filteredOrders = [];
+                        String reportType = '';
+
+                        if (value == 'daily') {
+                          reportType = 'Daily';
+                          filteredOrders = sales.orders.where((o) {
+                            return o.timestamp.year == now.year &&
+                                o.timestamp.month == now.month &&
+                                o.timestamp.day == now.day;
+                          }).toList();
+                        } else if (value == 'weekly') {
+                          reportType = 'Weekly';
+                          final startOfWeek = now.subtract(const Duration(days: 7));
+                          filteredOrders = sales.orders.where((o) {
+                            return o.timestamp.isAfter(startOfWeek);
+                          }).toList();
+                        } else if (value == 'monthly') {
+                          reportType = 'Monthly';
+                          final startOfMonth = now.subtract(const Duration(days: 30));
+                          filteredOrders = sales.orders.where((o) {
+                            return o.timestamp.isAfter(startOfMonth);
+                          }).toList();
+                        } else if (value == 'total') {
+                          reportType = 'Total Revenue';
+                          filteredOrders = sales.orders;
+                        }
+
+                        _exportSalesReportCsv(context, filteredOrders, reportType);
+                      },
+                      itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                        PopupMenuItem<String>(
+                          value: 'daily',
+                          child: Text('Today\'s Sales (Daily)', style: GoogleFonts.outfit(fontSize: 13)),
+                        ),
+                        PopupMenuItem<String>(
+                          value: 'weekly',
+                          child: Text('Last 7 Days (Weekly)', style: GoogleFonts.outfit(fontSize: 13)),
+                        ),
+                        PopupMenuItem<String>(
+                          value: 'monthly',
+                          child: Text('Last 30 Days (Monthly)', style: GoogleFonts.outfit(fontSize: 13)),
+                        ),
+                        PopupMenuItem<String>(
+                          value: 'total',
+                          child: Text('All-Time Sales (Total)', style: GoogleFonts.outfit(fontSize: 13)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(width: 8),
+                    TextButton.icon(
+                      icon: const Icon(Icons.delete_sweep_rounded, size: 18, color: Colors.redAccent),
+                      label: const Text('Reset Sales History', style: TextStyle(color: Colors.redAccent, fontSize: 12)),
+                      onPressed: () {
+                        showDialog(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('Clear All Sales History'),
+                            content: const Text('Are you sure you want to reset all transaction audit logs? This action cannot be undone.'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx),
+                                child: const Text('Cancel'),
+                              ),
+                              ElevatedButton(
+                                style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+                                onPressed: () {
+                                  sales.clearAllOrders();
+                                  Navigator.pop(ctx);
+                                },
+                                child: const Text('Clear History'),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
                     ),
                   ],
                 ),
-              );
-            },
+              ],
+            ),
           ),
-        ),
-      ],
+          Expanded(
+            child: ListView.separated(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(16),
+              itemCount: sales.orders.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 10),
+              itemBuilder: (context, index) {
+                final order = sales.orders[index];
+                final formattedDate = DateFormat('dd MMM yyyy, hh:mm a').format(order.timestamp);
+
+                return Card(
+                  child: ExpansionTile(
+                    leading: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryAmber.withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.receipt_long_rounded, color: AppTheme.primaryAmber),
+                    ),
+                    title: Text(
+                      'Bill No: ${order.billNumber} • Rs.${order.totalAmount.toStringAsFixed(0)}',
+                      style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Text('$formattedDate • Paid via ${order.paymentMethod} (${order.orderType})'),
+                    trailing: OutlinedButton.icon(
+                      icon: const Icon(Icons.print_rounded, size: 16),
+                      label: const Text('Reprint'),
+                      style: OutlinedButton.styleFrom(foregroundColor: AppTheme.primaryAmber),
+                      onPressed: () {
+                        showDialog(
+                          context: context,
+                          builder: (_) => ReceiptPreviewDialog(order: order),
+                        );
+                      },
+                    ),
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Item Breakdown:', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13)),
+                            const SizedBox(height: 6),
+                            ...order.items.map((i) {
+                              return Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text('${i.item.name} x${i.quantity}', style: GoogleFonts.outfit(fontSize: 12)),
+                                  Text('Rs.${i.totalPrice.toStringAsFixed(0)}', style: GoogleFonts.outfit(fontSize: 12)),
+                                ],
+                              );
+                            }),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 

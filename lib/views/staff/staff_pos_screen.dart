@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -20,6 +21,24 @@ class StaffPOSScreen extends StatefulWidget {
 
 class _StaffPOSScreenState extends State<StaffPOSScreen> {
   final TextEditingController _searchController = TextEditingController();
+  Timer? _refreshTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      if (mounted) {
+        Provider.of<MenuProvider>(context, listen: false).loadMenuItems();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    _searchController.dispose();
+    super.dispose();
+  }
 
   IconData _getCategoryIcon(String category) {
     switch (category) {
@@ -298,6 +317,8 @@ class _StaffPOSScreenState extends State<StaffPOSScreen> {
     POSProvider posProvider,
   ) {
     final items = menuProvider.filteredItems;
+    final size = MediaQuery.of(context).size;
+    final isWide = size.width >= 900;
 
     return Column(
       children: [
@@ -326,34 +347,45 @@ class _StaffPOSScreenState extends State<StaffPOSScreen> {
 
         // Items Grid
         Expanded(
-          child: items.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+          child: RefreshIndicator(
+            onRefresh: () => menuProvider.loadMenuItems(),
+            color: AppTheme.primaryAmber,
+            child: items.isEmpty
+                ? ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
                     children: [
-                      const Icon(Icons.coffee_maker_outlined, size: 48, color: AppTheme.textSecondary),
-                      const SizedBox(height: 12),
-                      Text(
-                        'No menu items found',
-                        style: GoogleFonts.outfit(fontSize: 16, color: AppTheme.textSecondary),
+                      SizedBox(height: size.height * 0.2),
+                      Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.coffee_maker_outlined, size: 48, color: AppTheme.textSecondary),
+                            const SizedBox(height: 12),
+                            Text(
+                              'No menu items found',
+                              style: GoogleFonts.outfit(fontSize: 16, color: AppTheme.textSecondary),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
+                  )
+                : GridView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(16),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: isWide ? 3 : 2,
+                      childAspectRatio: isWide ? 0.75 : 0.70,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                    ),
+                    itemCount: items.length,
+                    itemBuilder: (context, index) {
+                      final item = items[index];
+                      return _buildMenuItemCard(context, item, posProvider);
+                    },
                   ),
-                )
-              : GridView.builder(
-                  padding: const EdgeInsets.all(16),
-                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                    maxCrossAxisExtent: 220,
-                    childAspectRatio: 0.70,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                  ),
-                  itemCount: items.length,
-                  itemBuilder: (context, index) {
-                    final item = items[index];
-                    return _buildMenuItemCard(context, item, posProvider);
-                  },
-                ),
+          ),
         ),
       ],
     );

@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "901856996962",
+    "firebase_url": "https://aroma-945aa-default-rtdb.firebaseio.com",
+    "project_id": "aroma-945aa",
+    "storage_bucket": "aroma-945aa.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:901856996962:android:9a64fbce30d850b47eab3b",
+        "android_client_info": {
+          "package_name": "com.aroma.teacafe.aroma"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBJrOUDc1kBDNxiBbCmBN6hXyXqsIt56Ko"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
