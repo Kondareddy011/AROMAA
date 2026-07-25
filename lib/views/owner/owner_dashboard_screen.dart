@@ -793,15 +793,15 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
                           ),
                           const SizedBox(width: 4),
                           IconButton(
-                            icon: const Icon(Icons.add_circle_rounded, color: AppTheme.primaryAmber, size: 28),
+                            icon: const Icon(Icons.settings_outlined, color: AppTheme.primaryAmber, size: 26),
                             onPressed: () {
-                              _showAddCategoryDialog(context, menuProvider, (newCat) {
+                              _showManageCategoriesDialog(context, menuProvider, category, (newCat) {
                                 setState(() {
                                   category = newCat;
                                 });
                               });
                             },
-                            tooltip: 'Add Category',
+                            tooltip: 'Manage Categories',
                           ),
                         ],
                       ),
@@ -908,38 +908,94 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
     );
   }
 
-  void _showAddCategoryDialog(BuildContext context, MenuProvider menuProvider, Function(String) onCategoryAdded) {
+  void _showManageCategoriesDialog(BuildContext context, MenuProvider menuProvider, String currentCategory, Function(String) onCategorySelected) {
     final catCtrl = TextEditingController();
     showDialog(
       context: context,
       builder: (ctx) {
-        return AlertDialog(
-          title: Text('Add New Category', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
-          content: TextField(
-            controller: catCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Category Name',
-              hintText: 'e.g. Mocktails',
-            ),
-            autofocus: true,
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final name = catCtrl.text.trim();
-                if (name.isNotEmpty) {
-                  await menuProvider.addCategory(name);
-                  onCategoryAdded(name);
-                }
-                if (ctx.mounted) Navigator.pop(ctx);
-              },
-              child: const Text('Add'),
-            ),
-          ],
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Text('Manage Categories', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+              content: SizedBox(
+                width: 320,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: catCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'New Category Name',
+                              hintText: 'e.g. Mocktails',
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.add_circle_outline_rounded, color: AppTheme.primaryAmber),
+                          onPressed: () async {
+                            final name = catCtrl.text.trim();
+                            if (name.isNotEmpty) {
+                              await menuProvider.addCategory(name);
+                              catCtrl.clear();
+                              onCategorySelected(name);
+                              setDialogState(() {});
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Custom Categories:',
+                        style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Flexible(
+                      child: menuProvider.customCategories.isEmpty
+                          ? Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Text('No custom categories yet.', style: TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
+                            )
+                          : ListView.builder(
+                              shrinkWrap: true,
+                              itemCount: menuProvider.customCategories.length,
+                              itemBuilder: (context, index) {
+                                final cat = menuProvider.customCategories[index];
+                                return ListTile(
+                                  title: Text(cat, style: GoogleFonts.outfit(fontSize: 13)),
+                                  trailing: IconButton(
+                                    icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 20),
+                                    onPressed: () async {
+                                      await menuProvider.deleteCategory(cat);
+                                      if (currentCategory == cat) {
+                                        onCategorySelected('Special Chai');
+                                      }
+                                      setDialogState(() {});
+                                    },
+                                  ),
+                                  contentPadding: EdgeInsets.zero,
+                                  dense: true,
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Close'),
+                ),
+              ],
+            );
+          },
         );
       },
     );

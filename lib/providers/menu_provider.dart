@@ -74,6 +74,8 @@ class MenuProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  List<String> get customCategories => _customCategories;
+
   Future<void> addCategory(String categoryName) async {
     final nameTrimmed = categoryName.trim();
     if (nameTrimmed.isEmpty) return;
@@ -85,6 +87,13 @@ class MenuProvider with ChangeNotifier {
       await _firestoreService.saveCustomCategories(_customCategories);
       notifyListeners();
     }
+  }
+
+  Future<void> deleteCategory(String categoryName) async {
+    _customCategories.remove(categoryName);
+    await _storageService.saveCustomCategories(_customCategories);
+    await _firestoreService.saveCustomCategories(_customCategories);
+    notifyListeners();
   }
 
   void selectCategory(String category) {
