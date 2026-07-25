@@ -63,11 +63,16 @@ class MenuProvider with ChangeNotifier {
     
     // Try to load from Firestore first
     final remoteItems = await _firestoreService.getMenuItems();
+    const demoItemIds = {
+      'item_1', 'item_2', 'item_3', 'item_4', 'item_5', 'item_6',
+      'item_7', 'item_8', 'item_9', 'item_10', 'item_11', 'item_12'
+    };
+
     if (remoteItems.isNotEmpty) {
       _items = remoteItems;
-      final demoItems = _items.where((item) => item.id.startsWith('item_')).toList();
+      final demoItems = _items.where((item) => demoItemIds.contains(item.id)).toList();
       if (demoItems.isNotEmpty) {
-        _items.removeWhere((item) => item.id.startsWith('item_'));
+        _items.removeWhere((item) => demoItemIds.contains(item.id));
         await _storageService.saveMenuItems(_items);
         for (var demo in demoItems) {
           await _firestoreService.deleteMenuItem(demo.id);
@@ -78,9 +83,9 @@ class MenuProvider with ChangeNotifier {
     } else {
       // Fallback to local storage
       _items = await _storageService.getMenuItems();
-      final demoItems = _items.where((item) => item.id.startsWith('item_')).toList();
+      final demoItems = _items.where((item) => demoItemIds.contains(item.id)).toList();
       if (demoItems.isNotEmpty) {
-        _items.removeWhere((item) => item.id.startsWith('item_'));
+        _items.removeWhere((item) => demoItemIds.contains(item.id));
         await _storageService.saveMenuItems(_items);
         for (var demo in demoItems) {
           await _firestoreService.deleteMenuItem(demo.id);

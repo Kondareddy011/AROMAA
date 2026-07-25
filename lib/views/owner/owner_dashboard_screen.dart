@@ -889,7 +889,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
                       menuProvider.updateItem(updated);
                     } else {
                       final newItem = MenuItem(
-                        id: 'item_${DateTime.now().millisecondsSinceEpoch}',
+                        id: 'menu_${DateTime.now().millisecondsSinceEpoch}',
                         itemCode: codeCtrl.text.trim(),
                         name: nameCtrl.text.trim(),
                         category: category,
