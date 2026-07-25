@@ -667,7 +667,11 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
     final priceCtrl = TextEditingController(text: existingItem?.price.toStringAsFixed(0) ?? '30');
     final descCtrl = TextEditingController(text: existingItem?.description ?? '');
     final imageCtrl = TextEditingController(text: existingItem?.imageUrl ?? '');
-    String category = existingItem?.category ?? 'Special Chai';
+    final availableCategories = menuProvider.categories.where((c) => c != 'All').toList();
+    String category = existingItem?.category ?? (availableCategories.isNotEmpty ? availableCategories.first : 'Special Chai');
+    if (!availableCategories.contains(category) && availableCategories.isNotEmpty) {
+      category = availableCategories.first;
+    }
 
     // Curated high quality demo preset images for 1-click selection
     final Map<String, String> demoPresets = {
@@ -777,13 +781,12 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
                           Expanded(
                             flex: 6,
                             child: DropdownButtonFormField<String>(
-                              value: category,
+                              value: availableCategories.contains(category) ? category : (availableCategories.isNotEmpty ? availableCategories.first : null),
                               decoration: const InputDecoration(
                                 labelText: 'Category',
                                 contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                               ),
-                              items: menuProvider.categories
-                                  .where((c) => c != 'All')
+                              items: availableCategories
                                   .map((c) => DropdownMenuItem(value: c, child: Text(c, style: GoogleFonts.outfit(fontSize: 13))))
                                   .toList(),
                               onChanged: (val) {
