@@ -63,6 +63,11 @@ class MenuProvider with ChangeNotifier {
     } else {
       // Fallback to local storage
       _items = await _storageService.getMenuItems();
+      if (_items.isNotEmpty) {
+        for (var item in _items) {
+          await _firestoreService.saveMenuItem(item);
+        }
+      }
     }
     
     _isLoading = false;
