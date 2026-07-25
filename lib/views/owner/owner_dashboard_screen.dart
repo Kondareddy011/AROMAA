@@ -190,6 +190,14 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
                     subtitle: '${sales.todayOrderCount} Orders Today',
                     icon: Icons.today_rounded,
                     color: AppTheme.primaryAmber,
+                    onDownload: () {
+                      final now = DateTime.now();
+                      final todayOrders = sales.orders.where((o) =>
+                          o.timestamp.year == now.year &&
+                          o.timestamp.month == now.month &&
+                          o.timestamp.day == now.day).toList();
+                      _exportCardReportCsv(context, todayOrders, 'Today Sales');
+                    },
                   ),
                   _buildMetricCard(
                     title: 'Weekly Sales',
@@ -197,6 +205,12 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
                     subtitle: 'Last 7 Days',
                     icon: Icons.date_range_rounded,
                     color: Colors.blueAccent,
+                    onDownload: () {
+                      final now = DateTime.now();
+                      final startOfWeek = now.subtract(const Duration(days: 7));
+                      final weeklyOrders = sales.orders.where((o) => o.timestamp.isAfter(startOfWeek)).toList();
+                      _exportCardReportCsv(context, weeklyOrders, 'Weekly Sales');
+                    },
                   ),
                   _buildMetricCard(
                     title: 'Monthly Sales',
@@ -204,6 +218,12 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
                     subtitle: 'Current Month Total',
                     icon: Icons.calendar_month_rounded,
                     color: AppTheme.matchaGreen,
+                    onDownload: () {
+                      final now = DateTime.now();
+                      final startOfMonth = now.subtract(const Duration(days: 30));
+                      final monthlyOrders = sales.orders.where((o) => o.timestamp.isAfter(startOfMonth)).toList();
+                      _exportCardReportCsv(context, monthlyOrders, 'Monthly Sales');
+                    },
                   ),
                   _buildMetricCard(
                     title: 'Total Amount Received',
@@ -211,6 +231,9 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
                     subtitle: 'Lifetime Revenue',
                     icon: Icons.account_balance_wallet_rounded,
                     color: Colors.purpleAccent,
+                    onDownload: () {
+                      _exportCardReportCsv(context, sales.orders, 'Total Revenue');
+                    },
                   ),
                 ],
               );
@@ -377,10 +400,11 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
     required String subtitle,
     required IconData icon,
     required Color color,
+    VoidCallback? onDownload,
   }) {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -393,11 +417,20 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
                     title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.outfit(fontSize: 12, color: AppTheme.textSecondary),
+                    style: GoogleFonts.outfit(fontSize: 10, color: AppTheme.textSecondary),
                   ),
                 ),
-                const SizedBox(width: 4),
-                Icon(icon, color: color, size: 20),
+                if (onDownload != null) ...[
+                  IconButton(
+                    icon: const Icon(Icons.download_rounded, size: 14),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: onDownload,
+                    tooltip: 'Download CSV',
+                  ),
+                  const SizedBox(width: 4),
+                ],
+                Icon(icon, color: color, size: 16),
               ],
             ),
             FittedBox(
@@ -405,14 +438,14 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
               alignment: Alignment.centerLeft,
               child: Text(
                 amount,
-                style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold, color: color),
+                style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: color),
               ),
             ),
             Text(
               subtitle,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.outfit(fontSize: 11, color: AppTheme.textSecondary),
+              style: GoogleFonts.outfit(fontSize: 10, color: AppTheme.textSecondary),
             ),
           ],
         ),
@@ -900,16 +933,14 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
   Future<void> _exportSalesReportCsv(BuildContext context, List<OrderModel> orders, String reportType) async {
     try {
       final buffer = StringBuffer();
-      // CSV Headers
-      buffer.writeln('Bill Number,Token Number,Date,Time,Staff Counter,Order Type,Payment Method,Subtotal,Tax,Discount,Total Amount,Status,Items Ordered');
+      // CSV Headers: Token Number,Payment Type,Amount,Items Ordered
+      buffer.writeln('Token Number,Payment Type,Amount,Items Ordered');
 
       for (var o in orders) {
         final itemsStr = o.items.map((i) => '${i.item.name} (${i.variant} x${i.quantity})').join('; ');
-        final dateStr = DateFormat('yyyy-MM-dd').format(o.timestamp);
-        final timeStr = DateFormat('HH:mm:ss').format(o.timestamp);
         final escapedItems = '"${itemsStr.replaceAll('"', '""')}"';
         
-        buffer.writeln('${o.billNumber},${o.tokenNumber},$dateStr,$timeStr,${o.staffName},${o.orderType},${o.paymentMethod},${o.subtotal.toStringAsFixed(2)},${o.taxAmount.toStringAsFixed(2)},${o.discountAmount.toStringAsFixed(2)},${o.totalAmount.toStringAsFixed(2)},${o.status},$escapedItems');
+        buffer.writeln('${o.tokenNumber},${o.paymentMethod},${o.totalAmount.toStringAsFixed(2)},$escapedItems');
       }
 
       final csvContent = buffer.toString();
@@ -939,6 +970,53 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to export report: $e'), backgroundColor: Colors.redAccent),
+        );
+      }
+    }
+  }
+
+  Future<void> _exportCardReportCsv(BuildContext context, List<OrderModel> orders, String reportType) async {
+    try {
+      final buffer = StringBuffer();
+      // CSV Headers: Token Number,Total Orders,Items Ordered,Payment Type,Total Amount
+      buffer.writeln('Token Number,Total Orders,Items Ordered,Payment Type,Total Amount');
+
+      int serialNo = 1;
+      for (var o in orders) {
+        final itemsStr = o.items.map((i) => '${i.item.name} (${i.variant} x${i.quantity})').join('; ');
+        final escapedItems = '"${itemsStr.replaceAll('"', '""')}"';
+        
+        buffer.writeln('${o.tokenNumber},$serialNo,$escapedItems,${o.paymentMethod},${o.totalAmount.toStringAsFixed(2)}');
+        serialNo++;
+      }
+
+      final csvContent = buffer.toString();
+      final bytes = utf8.encode(csvContent);
+
+      final String? path = await FilePicker.platform.saveFile(
+        dialogTitle: 'Export $reportType Details',
+        fileName: 'aroma_${reportType.toLowerCase().replaceAll(' ', '_')}_details_${DateFormat('yyyyMMdd').format(DateTime.now())}.csv',
+        type: FileType.custom,
+        allowedExtensions: ['csv'],
+        bytes: bytes,
+      );
+
+      if (path != null) {
+        final file = File(path);
+        await file.writeAsBytes(bytes);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('$reportType details exported successfully to: $path'),
+              backgroundColor: AppTheme.matchaGreen,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to export details: $e'), backgroundColor: Colors.redAccent),
         );
       }
     }
