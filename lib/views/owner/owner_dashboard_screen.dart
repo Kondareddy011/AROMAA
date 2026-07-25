@@ -936,12 +936,28 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
       // CSV Headers: Token Number,Payment Type,Amount,Items Ordered
       buffer.writeln('Token Number,Payment Type,Amount,Items Ordered');
 
-      for (var o in orders) {
+      // Sort chronologically
+      final sorted = List<OrderModel>.from(orders);
+      sorted.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+
+      double grandTotal = 0.0;
+      String? lastDate;
+
+      for (var o in sorted) {
+        final currentDateStr = DateFormat('dd-MM-yyyy').format(o.timestamp);
+        if (lastDate != null && lastDate != currentDateStr) {
+          buffer.writeln('=== NEXT DAY: $currentDateStr ===,,,');
+        }
+        lastDate = currentDateStr;
+
         final itemsStr = o.items.map((i) => '${i.item.name} (${i.variant} x${i.quantity})').join('; ');
         final escapedItems = '"${itemsStr.replaceAll('"', '""')}"';
         
         buffer.writeln('${o.tokenNumber},${o.paymentMethod},${o.totalAmount.toStringAsFixed(2)},$escapedItems');
+        grandTotal += o.totalAmount;
       }
+
+      buffer.writeln('Total,,${grandTotal.toStringAsFixed(2)},');
 
       final csvContent = buffer.toString();
       final bytes = utf8.encode(csvContent);
@@ -981,14 +997,30 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
       // CSV Headers: Token Number,Total Orders,Items Ordered,Payment Type,Total Amount
       buffer.writeln('Token Number,Total Orders,Items Ordered,Payment Type,Total Amount');
 
+      // Sort chronologically
+      final sorted = List<OrderModel>.from(orders);
+      sorted.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+
+      double grandTotal = 0.0;
+      String? lastDate;
       int serialNo = 1;
-      for (var o in orders) {
+
+      for (var o in sorted) {
+        final currentDateStr = DateFormat('dd-MM-yyyy').format(o.timestamp);
+        if (lastDate != null && lastDate != currentDateStr) {
+          buffer.writeln('=== NEXT DAY: $currentDateStr ===,,,,');
+        }
+        lastDate = currentDateStr;
+
         final itemsStr = o.items.map((i) => '${i.item.name} (${i.variant} x${i.quantity})').join('; ');
         final escapedItems = '"${itemsStr.replaceAll('"', '""')}"';
         
         buffer.writeln('${o.tokenNumber},$serialNo,$escapedItems,${o.paymentMethod},${o.totalAmount.toStringAsFixed(2)}');
         serialNo++;
+        grandTotal += o.totalAmount;
       }
+
+      buffer.writeln('Total,,,,${grandTotal.toStringAsFixed(2)}');
 
       final csvContent = buffer.toString();
       final bytes = utf8.encode(csvContent);
