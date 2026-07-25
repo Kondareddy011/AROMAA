@@ -65,11 +65,27 @@ class MenuProvider with ChangeNotifier {
     final remoteItems = await _firestoreService.getMenuItems();
     if (remoteItems.isNotEmpty) {
       _items = remoteItems;
-      await _storageService.saveMenuItems(_items); // Cache locally
+      final demoItems = _items.where((item) => item.id.startsWith('item_')).toList();
+      if (demoItems.isNotEmpty) {
+        _items.removeWhere((item) => item.id.startsWith('item_'));
+        await _storageService.saveMenuItems(_items);
+        for (var demo in demoItems) {
+          await _firestoreService.deleteMenuItem(demo.id);
+        }
+      } else {
+        await _storageService.saveMenuItems(_items); // Cache locally
+      }
     } else {
       // Fallback to local storage
       _items = await _storageService.getMenuItems();
-      if (_items.isNotEmpty) {
+      final demoItems = _items.where((item) => item.id.startsWith('item_')).toList();
+      if (demoItems.isNotEmpty) {
+        _items.removeWhere((item) => item.id.startsWith('item_'));
+        await _storageService.saveMenuItems(_items);
+        for (var demo in demoItems) {
+          await _firestoreService.deleteMenuItem(demo.id);
+        }
+      } else if (_items.isNotEmpty) {
         for (var item in _items) {
           await _firestoreService.saveMenuItem(item);
         }

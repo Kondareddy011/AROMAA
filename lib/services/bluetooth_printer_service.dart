@@ -131,8 +131,8 @@ class BluetoothPrinterService {
     pdf.addPage(
       pw.Page(
         pageFormat: paperWidth.copyWith(
-          marginTop: 8,
-          marginBottom: 4,
+          marginTop: 7,
+          marginBottom: 7,
           marginLeft: 8,
           marginRight: 8,
         ),
@@ -305,7 +305,7 @@ class BluetoothPrinterService {
     bytes.addAll('--------------------------------\n'.codeUnits);
 
     // Footer
-    bytes.addAll('${config.footerMessage}\n\n'.codeUnits);
+    bytes.addAll('${config.footerMessage}\n\n\n'.codeUnits);
 
     // GS V 1 - Paper cut command (Function A: cut immediately at current position without extra feed)
     bytes.addAll([0x1D, 0x56, 0x01]);
