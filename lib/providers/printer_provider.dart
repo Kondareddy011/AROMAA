@@ -115,6 +115,11 @@ class PrinterProvider with ChangeNotifier {
   }
 
   Future<bool> printReceiptDirectly(OrderModel order) async {
+    final active = await BluetoothPrinterService.isConnectionActive();
+    if (!active && _config.macAddress.isNotEmpty && _config.macAddress != '00:11:22:33:44:55') {
+      await autoConnectPreviousDevice();
+    }
+    
     final bytes = BluetoothPrinterService.buildEscPosBytes(
       order: order,
       config: _config,

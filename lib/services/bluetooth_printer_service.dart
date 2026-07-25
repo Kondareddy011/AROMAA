@@ -43,6 +43,15 @@ class BluetoothPrinterService {
     }
   }
 
+  /// Check if active connection exists
+  static Future<bool> isConnectionActive() async {
+    try {
+      return await PrintBluetoothThermal.connectionStatus;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Scan and retrieve REAL paired/discovered Bluetooth devices from the OS Bluetooth adapter
   static Future<List<Map<String, String>>> scanRealBluetoothDevices() async {
     try {
@@ -71,6 +80,9 @@ class BluetoothPrinterService {
   static Future<bool> connectRealDevice(String macAddress) async {
     try {
       await requestBluetoothPermissions();
+      // Disconnect first to ensure stale connection handles are released
+      await PrintBluetoothThermal.disconnect;
+      await Future.delayed(const Duration(milliseconds: 300));
       final bool result = await PrintBluetoothThermal.connect(macPrinterAddress: macAddress);
       return result;
     } catch (e) {
