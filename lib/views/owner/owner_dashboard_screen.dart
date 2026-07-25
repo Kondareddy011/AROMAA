@@ -33,6 +33,15 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
   late TabController _tabController;
   Timer? _refreshTimer;
 
+  // Persistent controllers for printer settings
+  final TextEditingController _cafeNameController = TextEditingController();
+  final TextEditingController _addressController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _gstinController = TextEditingController();
+  final TextEditingController _footerController = TextEditingController();
+  final TextEditingController _taxPercentageController = TextEditingController();
+  bool _controllersInitialized = false;
+
   @override
   void initState() {
     super.initState();
@@ -76,6 +85,12 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
     _refreshTimer?.cancel();
     _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
+    _cafeNameController.dispose();
+    _addressController.dispose();
+    _phoneController.dispose();
+    _gstinController.dispose();
+    _footerController.dispose();
+    _taxPercentageController.dispose();
     super.dispose();
   }
 
@@ -1439,6 +1454,23 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
     final printerProvider = Provider.of<PrinterProvider>(context);
     final config = printerProvider.config;
 
+    if (!_controllersInitialized && config.cafeName.isNotEmpty) {
+      _cafeNameController.text = config.cafeName;
+      _addressController.text = config.address;
+      _phoneController.text = config.phone;
+      _gstinController.text = config.gstin;
+      _footerController.text = config.footerMessage;
+      _taxPercentageController.text = config.taxPercentage.toString();
+      _controllersInitialized = true;
+    } else if (!_controllersInitialized) {
+      _cafeNameController.text = config.cafeName;
+      _addressController.text = config.address;
+      _phoneController.text = config.phone;
+      _gstinController.text = config.gstin;
+      _footerController.text = config.footerMessage;
+      _taxPercentageController.text = config.taxPercentage.toString();
+    }
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -1593,13 +1625,13 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
               child: Column(
                 children: [
                   TextField(
-                    controller: TextEditingController(text: config.cafeName),
+                    controller: _cafeNameController,
                     decoration: const InputDecoration(labelText: 'Cafe Header Name'),
                     onChanged: (val) => printerProvider.updateConfig(config.copyWith(cafeName: val)),
                   ),
                   const SizedBox(height: 12),
                   TextField(
-                    controller: TextEditingController(text: config.address),
+                    controller: _addressController,
                     decoration: const InputDecoration(labelText: 'Store Address Line'),
                     onChanged: (val) => printerProvider.updateConfig(config.copyWith(address: val)),
                   ),
@@ -1608,7 +1640,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
                     children: [
                       Expanded(
                         child: TextField(
-                          controller: TextEditingController(text: config.phone),
+                          controller: _phoneController,
                           decoration: const InputDecoration(labelText: 'Phone Number'),
                           onChanged: (val) => printerProvider.updateConfig(config.copyWith(phone: val)),
                         ),
@@ -1616,7 +1648,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
                       const SizedBox(width: 12),
                       Expanded(
                         child: TextField(
-                          controller: TextEditingController(text: config.gstin),
+                          controller: _gstinController,
                           decoration: const InputDecoration(labelText: 'GSTIN Number'),
                           onChanged: (val) => printerProvider.updateConfig(config.copyWith(gstin: val)),
                         ),
@@ -1625,7 +1657,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
                   ),
                   const SizedBox(height: 12),
                   TextField(
-                    controller: TextEditingController(text: config.footerMessage),
+                    controller: _footerController,
                     decoration: const InputDecoration(labelText: 'Footer Thank-You Message'),
                     onChanged: (val) => printerProvider.updateConfig(config.copyWith(footerMessage: val)),
                   ),
@@ -1646,7 +1678,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
                       const SizedBox(width: 12),
                       Expanded(
                         child: TextField(
-                          controller: TextEditingController(text: config.taxPercentage.toString()),
+                          controller: _taxPercentageController,
                           enabled: config.taxEnabled,
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
                           decoration: const InputDecoration(labelText: 'GST / Tax Percentage (%)', suffixText: '%'),
