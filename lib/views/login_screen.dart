@@ -144,16 +144,15 @@ class _LoginScreenState extends State<LoginScreen> {
                   children: [
                     // Header Brand Logo
                     Container(
-                      padding: const EdgeInsets.all(16),
+                      width: 96,
+                      height: 96,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: AppTheme.primaryAmber.withValues(alpha: 0.15),
                         border: Border.all(color: AppTheme.primaryAmber.withValues(alpha: 0.4), width: 2),
-                      ),
-                      child: const Icon(
-                        Icons.coffee_rounded,
-                        size: 48,
-                        color: AppTheme.primaryAmber,
+                        image: const DecorationImage(
+                          image: AssetImage('assets/logo.png'),
+                          fit: BoxFit.cover,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),

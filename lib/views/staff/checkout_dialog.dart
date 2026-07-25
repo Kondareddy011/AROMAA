@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -159,14 +160,28 @@ class _CheckoutDialogState extends State<CheckoutDialog> {
                               child: SizedBox(
                                 width: 36,
                                 height: 36,
-                                child: Image.network(
-                                  item.effectiveImageUrl,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => Container(
-                                    color: AppTheme.cardSurface,
-                                    child: const Icon(Icons.coffee_rounded, size: 18, color: AppTheme.primaryAmber),
-                                  ),
-                                ),
+                                child: item.effectiveImageUrl.startsWith('http')
+                                    ? Image.network(
+                                        item.effectiveImageUrl,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) => Container(
+                                          color: AppTheme.cardSurface,
+                                          child: const Icon(Icons.coffee_rounded, size: 18, color: AppTheme.primaryAmber),
+                                        ),
+                                      )
+                                    : (File(item.effectiveImageUrl).existsSync()
+                                        ? Image.file(
+                                            File(item.effectiveImageUrl),
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (_, __, ___) => Container(
+                                              color: AppTheme.cardSurface,
+                                              child: const Icon(Icons.coffee_rounded, size: 18, color: AppTheme.primaryAmber),
+                                            ),
+                                          )
+                                        : Container(
+                                            color: AppTheme.cardSurface,
+                                            child: const Icon(Icons.coffee_rounded, size: 18, color: AppTheme.primaryAmber),
+                                          )),
                               ),
                             ),
                             const SizedBox(width: 10),

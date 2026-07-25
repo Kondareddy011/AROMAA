@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -72,12 +73,16 @@ class _StaffPOSScreenState extends State<StaffPOSScreen> {
         title: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(6),
+              width: 32,
+              height: 32,
               decoration: BoxDecoration(
-                color: AppTheme.primaryAmber.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(8),
+                shape: BoxShape.circle,
+                border: Border.all(color: AppTheme.primaryAmber.withValues(alpha: 0.3), width: 1.5),
+                image: const DecorationImage(
+                  image: AssetImage('assets/logo.png'),
+                  fit: BoxFit.cover,
+                ),
               ),
-              child: const Icon(Icons.coffee_rounded, color: AppTheme.primaryAmber, size: 24),
             ),
             const SizedBox(width: 10),
             Column(
@@ -410,23 +415,37 @@ class _StaffPOSScreenState extends State<StaffPOSScreen> {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    Image.network(
-                      item.effectiveImageUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
-                        color: AppTheme.cardSurface,
-                        child: const Icon(Icons.restaurant_menu_rounded, size: 36, color: AppTheme.primaryAmber),
-                      ),
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return Container(
-                          color: AppTheme.cardSurface,
-                          child: const Center(
-                            child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryAmber),
-                          ),
-                        );
-                      },
-                    ),
+                    item.effectiveImageUrl.startsWith('http')
+                        ? Image.network(
+                            item.effectiveImageUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              color: AppTheme.cardSurface,
+                              child: const Icon(Icons.restaurant_menu_rounded, size: 36, color: AppTheme.primaryAmber),
+                            ),
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return Container(
+                                color: AppTheme.cardSurface,
+                                child: const Center(
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryAmber),
+                                ),
+                              );
+                            },
+                          )
+                        : (File(item.effectiveImageUrl).existsSync()
+                            ? Image.file(
+                                File(item.effectiveImageUrl),
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Container(
+                                  color: AppTheme.cardSurface,
+                                  child: const Icon(Icons.restaurant_menu_rounded, size: 36, color: AppTheme.primaryAmber),
+                                ),
+                              )
+                            : Container(
+                                color: AppTheme.cardSurface,
+                                child: const Icon(Icons.restaurant_menu_rounded, size: 36, color: AppTheme.primaryAmber),
+                              )),
 
                     // Top Gradient Overlay for readability of badges
                     Positioned.fill(
@@ -450,23 +469,8 @@ class _StaffPOSScreenState extends State<StaffPOSScreen> {
                       left: 8,
                       right: 8,
                       child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        mainAxisAlignment: MainAxisAlignment.end,
                         children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.7),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              item.itemCode,
-                              style: GoogleFonts.outfit(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.primaryAmber,
-                              ),
-                            ),
-                          ),
                           if (!item.isAvailable)
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),

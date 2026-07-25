@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -570,43 +571,35 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
                         child: SizedBox(
                           width: 48,
                           height: 48,
-                          child: Image.network(
-                            item.effectiveImageUrl,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(
-                              color: AppTheme.cardSurface,
-                              child: const Icon(Icons.coffee_rounded, size: 24, color: AppTheme.primaryAmber),
-                            ),
-                          ),
+                          child: item.effectiveImageUrl.startsWith('http')
+                              ? Image.network(
+                                  item.effectiveImageUrl,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Container(
+                                    color: AppTheme.cardSurface,
+                                    child: const Icon(Icons.coffee_rounded, size: 24, color: AppTheme.primaryAmber),
+                                  ),
+                                )
+                              : (File(item.effectiveImageUrl).existsSync()
+                                  ? Image.file(
+                                      File(item.effectiveImageUrl),
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) => Container(
+                                        color: AppTheme.cardSurface,
+                                        child: const Icon(Icons.coffee_rounded, size: 24, color: AppTheme.primaryAmber),
+                                      ),
+                                    )
+                                  : Container(
+                                      color: AppTheme.cardSurface,
+                                      child: const Icon(Icons.coffee_rounded, size: 24, color: AppTheme.primaryAmber),
+                                    )),
                         ),
                       ),
-                      title: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: AppTheme.primaryAmber.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              item.itemCode,
-                              style: GoogleFonts.outfit(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.primaryAmber,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              item.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ],
+                      title: Text(
+                        item.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
                       ),
                       subtitle: Text(
                         '${item.category} • ${item.description}',
@@ -774,27 +767,6 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
                       Row(
                         children: [
                           Expanded(
-                            flex: 5,
-                            child: OutlinedButton.icon(
-                              icon: const Icon(Icons.cloud_upload_rounded),
-                              label: const Text('Upload File'),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: AppTheme.primaryAmber,
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                              ),
-                              onPressed: () async {
-                                final result = await FilePicker.platform.pickFiles(type: FileType.image);
-                                if (result != null && result.files.single.path != null) {
-                                  setState(() {
-                                    imageCtrl.text = result.files.single.path!;
-                                  });
-                                }
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            flex: 6,
                             child: DropdownButtonFormField<String>(
                               value: availableCategories.contains(category) ? category : (availableCategories.isNotEmpty ? availableCategories.first : null),
                               decoration: const InputDecoration(
@@ -825,6 +797,50 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
                       ),
                       const SizedBox(height: 12),
 
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              icon: const Icon(Icons.photo_library_rounded, size: 16),
+                              label: const Text('Gallery', style: TextStyle(fontSize: 11)),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppTheme.primaryAmber,
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                              ),
+                              onPressed: () async {
+                                final result = await FilePicker.platform.pickFiles(type: FileType.image);
+                                if (result != null && result.files.single.path != null) {
+                                  setState(() {
+                                    imageCtrl.text = result.files.single.path!;
+                                  });
+                                }
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              icon: const Icon(Icons.camera_alt_rounded, size: 16),
+                              label: const Text('Camera', style: TextStyle(fontSize: 11)),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppTheme.primaryAmber,
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                              ),
+                              onPressed: () async {
+                                final picker = ImagePicker();
+                                final XFile? photo = await picker.pickImage(source: ImageSource.camera);
+                                if (photo != null) {
+                                  setState(() {
+                                    imageCtrl.text = photo.path;
+                                  });
+                                }
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+
                       // Image URL / Path TextField
                       TextField(
                         controller: imageCtrl,
@@ -850,23 +866,10 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
                         decoration: const InputDecoration(labelText: 'Item Name (e.g. Ginger Lemon Tea)'),
                       ),
                       const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: codeCtrl,
-                              decoration: const InputDecoration(labelText: 'Item Code (e.g. TC-05)'),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: TextField(
-                              controller: priceCtrl,
-                              keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(labelText: 'Price (Rs.)'),
-                            ),
-                          ),
-                        ],
+                      TextField(
+                        controller: priceCtrl,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(labelText: 'Price (Rs.)'),
                       ),
                       const SizedBox(height: 12),
                       TextField(
@@ -895,7 +898,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
                     if (isEditing) {
                       final updated = existingItem.copyWith(
                         name: nameCtrl.text.trim(),
-                        itemCode: codeCtrl.text.trim(),
+                        itemCode: '',
                         price: price,
                         category: category,
                         description: descCtrl.text.trim(),
@@ -905,7 +908,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
                     } else {
                       final newItem = MenuItem(
                         id: 'menu_${DateTime.now().millisecondsSinceEpoch}',
-                        itemCode: codeCtrl.text.trim(),
+                        itemCode: '',
                         name: nameCtrl.text.trim(),
                         category: category,
                         price: price,

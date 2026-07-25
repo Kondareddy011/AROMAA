@@ -132,7 +132,7 @@ class BluetoothPrinterService {
       pw.Page(
         pageFormat: paperWidth.copyWith(
           marginTop: 7,
-          marginBottom: 7,
+          marginBottom: 8,
           marginLeft: 8,
           marginRight: 8,
         ),
