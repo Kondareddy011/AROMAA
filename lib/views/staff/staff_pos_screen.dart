@@ -529,10 +529,11 @@ class _StaffPOSScreenState extends State<StaffPOSScreen> {
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
+                           Expanded(
                             child: Text(
                               item.name,
                               maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                               style: GoogleFonts.outfit(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
@@ -556,6 +557,7 @@ class _StaffPOSScreenState extends State<StaffPOSScreen> {
                         item.description,
                         maxLines: 3,
                         softWrap: true,
+                        overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.outfit(fontSize: 11, color: AppTheme.textSecondary),
                       ),
                     ],
