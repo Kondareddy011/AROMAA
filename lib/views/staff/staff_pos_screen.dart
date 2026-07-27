@@ -524,33 +524,23 @@ class _StaffPOSScreenState extends State<StaffPOSScreen> {
                   padding: const EdgeInsets.all(10),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    mainAxisAlignment: MainAxisAlignment.start,
                     children: [
-                      Column(
+                      Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            item.name,
-                            maxLines: 2,
-                            style: GoogleFonts.outfit(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.textPrimary,
+                          Expanded(
+                            child: Text(
+                              item.name,
+                              maxLines: 2,
+                              style: GoogleFonts.outfit(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.textPrimary,
+                              ),
                             ),
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            item.description,
-                            maxLines: 3,
-                            softWrap: true,
-                            style: GoogleFonts.outfit(fontSize: 11, color: AppTheme.textSecondary),
-                          ),
-                        ],
-                      ),
-
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
+                          const SizedBox(width: 6),
                           Text(
                             'Rs.${item.price.toStringAsFixed(0)}',
                             style: GoogleFonts.outfit(
@@ -560,6 +550,13 @@ class _StaffPOSScreenState extends State<StaffPOSScreen> {
                             ),
                           ),
                         ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        item.description,
+                        maxLines: 3,
+                        softWrap: true,
+                        style: GoogleFonts.outfit(fontSize: 11, color: AppTheme.textSecondary),
                       ),
                     ],
                   ),

@@ -198,9 +198,38 @@ class BluetoothPrinterService {
                         : item.item.name;
                     return pw.Padding(
                       padding: const pw.EdgeInsets.symmetric(vertical: 1.5),
-                      child: pw.Text(
-                        '$name x${item.quantity} - Rs.${item.totalPrice.toStringAsFixed(0)}',
-                        style: pw.TextStyle(fontSize: 9 * scale),
+                      child: pw.Row(
+                        children: [
+                          pw.Expanded(
+                            flex: 5,
+                            child: pw.Text(
+                              name,
+                              style: pw.TextStyle(fontSize: 9 * scale),
+                            ),
+                          ),
+                          pw.Container(
+                            width: 35 * scale,
+                            alignment: pw.Alignment.center,
+                            child: pw.Text(
+                              'x${item.quantity}',
+                              style: pw.TextStyle(
+                                fontSize: 9 * scale,
+                                fontWeight: pw.FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          pw.Container(
+                            width: 65 * scale,
+                            alignment: pw.Alignment.centerRight,
+                            child: pw.Text(
+                              'Rs.${item.totalPrice.toStringAsFixed(0)}',
+                              style: pw.TextStyle(
+                                fontSize: 9 * scale,
+                                fontWeight: pw.FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     );
                   }).toList(),
@@ -213,9 +242,18 @@ class BluetoothPrinterService {
               pw.SizedBox(height: 2),
 
               // Total Amount
-              pw.Text(
-                'TOTAL: Rs.${order.totalAmount.toStringAsFixed(2)} (${order.paymentMethod})',
-                style: pw.TextStyle(fontSize: 10 * scale, fontWeight: pw.FontWeight.bold),
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text(
+                    'TOTAL (${order.paymentMethod}):',
+                    style: pw.TextStyle(fontSize: 10 * scale, fontWeight: pw.FontWeight.bold),
+                  ),
+                  pw.Text(
+                    'Rs.${order.totalAmount.toStringAsFixed(2)}',
+                    style: pw.TextStyle(fontSize: 11 * scale, fontWeight: pw.FontWeight.bold),
+                  ),
+                ],
               ),
               pw.SizedBox(height: 2),
               
@@ -245,6 +283,30 @@ class BluetoothPrinterService {
     required PrinterConfig config,
   }) async {
     final pdfBytes = await generateThermalReceiptPdf(order: order, config: config);
+    try {
+      final printers = await Printing.listPrinters();
+      if (printers.isNotEmpty) {
+        // Try to find a printer matching deviceName, otherwise find the default one, or the first available
+        final printer = printers.firstWhere(
+          (p) => p.name.toLowerCase().contains(config.deviceName.toLowerCase()) || 
+                 config.deviceName.toLowerCase().contains(p.name.toLowerCase()),
+          orElse: () => printers.firstWhere(
+            (p) => p.isDefault,
+            orElse: () => printers.first,
+          ),
+        );
+        return await Printing.directPrintPdf(
+          printer: printer,
+          onLayout: (PdfPageFormat format) async => pdfBytes,
+          name: 'Bill_${order.billNumber}',
+          format: config.paperWidthMm == 80 ? PdfPageFormat.roll80 : PdfPageFormat.roll57,
+        );
+      }
+    } catch (e) {
+      debugPrint('Direct print error: $e');
+    }
+    
+    // Fallback to interactive print dialog
     return await Printing.layoutPdf(
       onLayout: (PdfPageFormat format) async => pdfBytes,
       name: 'Bill_${order.billNumber}',
@@ -292,15 +354,24 @@ class BluetoothPrinterService {
       final name = item.variant != 'Regular'
           ? '${item.item.name} (${item.variant})'
           : item.item.name;
-      final line = '$name x${item.quantity} - Rs.${item.totalPrice.toStringAsFixed(0)}\n';
+      final nameStr = name.length > 18 ? name.substring(0, 18) : name.padRight(18);
+      final qtyStr = 'x${item.quantity}'.padLeft(3).padRight(4);
+      final priceStr = 'Rs.${item.totalPrice.toStringAsFixed(0)}'.padLeft(10);
+      final line = '$nameStr$qtyStr$priceStr\n';
       bytes.addAll(line.codeUnits);
     }
     bytes.addAll('--------------------------------\n'.codeUnits);
 
-    // Center align for Total
-    bytes.addAll([0x1B, 0x61, 0x01]);
+    // Left align for Total to layout it perfectly under the items
+    bytes.addAll([0x1B, 0x61, 0x00]);
     bytes.addAll([0x1B, 0x45, 0x01]); // bold on
-    bytes.addAll('TOTAL: Rs.${order.totalAmount.toStringAsFixed(2)} (${order.paymentMethod})\n'.codeUnits);
+    final totalLabel = 'TOTAL (${order.paymentMethod}):';
+    final totalValue = 'Rs.${order.totalAmount.toStringAsFixed(2)}';
+    final totalSpacesCount = 32 - totalLabel.length - totalValue.length;
+    final totalLine = totalSpacesCount > 0 
+        ? '$totalLabel${" " * totalSpacesCount}$totalValue\n' 
+        : '$totalLabel $totalValue\n';
+    bytes.addAll(totalLine.codeUnits);
     bytes.addAll([0x1B, 0x45, 0x00]); // bold off
     bytes.addAll('--------------------------------\n'.codeUnits);
 
