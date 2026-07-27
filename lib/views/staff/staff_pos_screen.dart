@@ -379,8 +379,8 @@ class _StaffPOSScreenState extends State<StaffPOSScreen> {
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.all(16),
                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: isWide ? 3 : 2,
-                      childAspectRatio: isWide ? 0.75 : 0.70,
+                      crossAxisCount: isWide ? 4 : 2,
+                      childAspectRatio: isWide ? 0.68 : 0.70,
                       crossAxisSpacing: 12,
                       mainAxisSpacing: 12,
                     ),
