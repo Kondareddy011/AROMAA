@@ -163,8 +163,8 @@ class _StaffPOSScreenState extends State<StaffPOSScreen> {
         children: [
           // 1. PERMANENT LEFT SIDE: Category Menu Sidebar
           SizedBox(
-            width: isWide ? 220 : 145,
-            child: _buildLeftMenuSidebar(context, menuProvider, isCompact: !isWide),
+            width: isWide ? 175 : 115,
+            child: _buildLeftMenuSidebar(context, menuProvider, isCompact: true),
           ),
           Container(width: 1, color: AppTheme.dividerColor),
 
@@ -273,10 +273,10 @@ class _StaffPOSScreenState extends State<StaffPOSScreen> {
                             Expanded(
                               child: Text(
                                 category,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                                maxLines: 2,
+                                softWrap: true,
                                 style: GoogleFonts.outfit(
-                                  fontSize: isCompact ? 11 : 13,
+                                  fontSize: isCompact ? 10 : 12,
                                   fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                                   color: isSelected ? Colors.black : AppTheme.textPrimary,
                                 ),
@@ -531,10 +531,9 @@ class _StaffPOSScreenState extends State<StaffPOSScreen> {
                         children: [
                           Text(
                             item.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                            maxLines: 2,
                             style: GoogleFonts.outfit(
-                              fontSize: 13,
+                              fontSize: 12,
                               fontWeight: FontWeight.bold,
                               color: AppTheme.textPrimary,
                             ),
@@ -542,9 +541,9 @@ class _StaffPOSScreenState extends State<StaffPOSScreen> {
                           const SizedBox(height: 2),
                           Text(
                             item.description,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.outfit(fontSize: 10, color: AppTheme.textSecondary),
+                            maxLines: 3,
+                            softWrap: true,
+                            style: GoogleFonts.outfit(fontSize: 11, color: AppTheme.textSecondary),
                           ),
                         ],
                       ),
@@ -555,21 +554,9 @@ class _StaffPOSScreenState extends State<StaffPOSScreen> {
                           Text(
                             'Rs.${item.price.toStringAsFixed(0)}',
                             style: GoogleFonts.outfit(
-                              fontSize: 15,
+                              fontSize: 13,
                               fontWeight: FontWeight.bold,
                               color: AppTheme.primaryAmber,
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.all(5),
-                            decoration: BoxDecoration(
-                              color: item.isAvailable ? AppTheme.primaryAmber : AppTheme.dividerColor,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Icon(
-                              Icons.add_rounded,
-                              size: 16,
-                              color: Colors.black,
                             ),
                           ),
                         ],
