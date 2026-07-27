@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: aromaa-cafe-pos
+    runtime: static
+    buildCommand: chmod +x render-build.sh && ./render-build.sh
+    publishPath: build/web
