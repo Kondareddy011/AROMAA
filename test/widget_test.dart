@@ -3,7 +3,7 @@ import 'package:aroma/main.dart';
 
 void main() {
   testWidgets('Aroma Cafe app loads successfully', (WidgetTester tester) async {
-    await tester.pumpWidget(const AromaCafeApp());
+    await tester.pumpWidget(const AromaaCafeApp());
     expect(find.text('AROMA TEA CAFE'), findsOneWidget);
   });
 }

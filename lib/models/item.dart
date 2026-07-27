@@ -1,3 +1,6 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
+
 class MenuItem {
   final String id;
   final String name;
@@ -7,6 +10,7 @@ class MenuItem {
   final bool isAvailable;
   final String itemCode;
   final String imageUrl;
+  final int sortOrder;
 
   MenuItem({
     required this.id,
@@ -17,12 +21,26 @@ class MenuItem {
     this.isAvailable = true,
     required this.itemCode,
     this.imageUrl = '',
+    this.sortOrder = 0,
   });
 
   /// Guaranteed demo image for every item based on category fallback
   String get effectiveImageUrl {
     if (imageUrl.trim().isNotEmpty) {
-      return imageUrl.trim();
+      final trimmed = imageUrl.trim();
+      if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:image/')) {
+        return trimmed;
+      }
+      // If it's a local path, verify if the file actually exists
+      if (!kIsWeb) {
+        try {
+          if (File(trimmed).existsSync()) {
+            return trimmed;
+          }
+        } catch (_) {
+          // Fall through to default if there is a path format error
+        }
+      }
     }
     switch (category) {
       case 'Special Chai':
@@ -49,6 +67,7 @@ class MenuItem {
     bool? isAvailable,
     String? itemCode,
     String? imageUrl,
+    int? sortOrder,
   }) {
     return MenuItem(
       id: id ?? this.id,
@@ -59,6 +78,7 @@ class MenuItem {
       isAvailable: isAvailable ?? this.isAvailable,
       itemCode: itemCode ?? this.itemCode,
       imageUrl: imageUrl ?? this.imageUrl,
+      sortOrder: sortOrder ?? this.sortOrder,
     );
   }
 
@@ -72,6 +92,7 @@ class MenuItem {
       'isAvailable': isAvailable,
       'itemCode': itemCode,
       'imageUrl': imageUrl,
+      'sortOrder': sortOrder,
     };
   }
 
@@ -86,6 +107,7 @@ class MenuItem {
       isAvailable: json['isAvailable'] as bool? ?? true,
       itemCode: (json['itemCode'] ?? 'ARM-00').toString(),
       imageUrl: (rawUrl == null || rawUrl == 'null') ? '' : rawUrl.toString(),
+      sortOrder: (json['sortOrder'] as num?)?.toInt() ?? 0,
     );
   }
 }

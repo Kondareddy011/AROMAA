@@ -22,6 +22,7 @@ import '../../theme/app_theme.dart';
 import '../login_screen.dart';
 import '../widgets/bluetooth_permission_dialog.dart';
 import '../widgets/receipt_preview_dialog.dart';
+import '../widgets/menu_item_image.dart';
 
 class OwnerDashboardScreen extends StatefulWidget {
   const OwnerDashboardScreen({super.key});
@@ -49,12 +50,16 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
     _tabController = TabController(length: 4, vsync: this);
     _tabController.addListener(_onTabChanged);
 
-    // Setup 5-second auto-refresh timer
+    // Setup 5-second auto-refresh timer for orders
     _refreshTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
       if (mounted) {
         Provider.of<SalesProvider>(context, listen: false).loadOrders();
-        Provider.of<MenuProvider>(context, listen: false).loadMenuItems();
       }
+    });
+
+    // Force load/sync the menu items from remote Firestore online when Owner Portal opens
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<MenuProvider>(context, listen: false).loadMenuItems(forceOnline: true);
     });
   }
 
@@ -557,101 +562,118 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
             child: RefreshIndicator(
               onRefresh: () => menuProvider.loadMenuItems(),
               color: AppTheme.primaryAmber,
-              child: ListView.separated(
+              child: ReorderableListView.builder(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(12),
+                buildDefaultDragHandles: false,
                 itemCount: menuProvider.filteredItems.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 10),
+                onReorder: (oldIndex, newIndex) {
+                  menuProvider.reorderItems(oldIndex, newIndex);
+                },
                 itemBuilder: (context, index) {
                   final item = menuProvider.filteredItems[index];
                   return Card(
-                    child: ListTile(
-                      leading: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: SizedBox(
-                          width: 48,
-                          height: 48,
-                          child: item.effectiveImageUrl.startsWith('http')
-                              ? Image.network(
-                                  item.effectiveImageUrl,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => Container(
-                                    color: AppTheme.cardSurface,
-                                    child: const Icon(Icons.coffee_rounded, size: 24, color: AppTheme.primaryAmber),
-                                  ),
-                                )
-                              : (File(item.effectiveImageUrl).existsSync()
-                                  ? Image.file(
-                                      File(item.effectiveImageUrl),
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) => Container(
-                                        color: AppTheme.cardSurface,
-                                        child: const Icon(Icons.coffee_rounded, size: 24, color: AppTheme.primaryAmber),
-                                      ),
-                                    )
-                                  : Container(
-                                      color: AppTheme.cardSurface,
-                                      child: const Icon(Icons.coffee_rounded, size: 24, color: AppTheme.primaryAmber),
-                                    )),
-                        ),
-                      ),
-                      title: Text(
-                        item.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
-                      ),
-                      subtitle: Text(
-                        '${item.category} • ${item.description}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
+                    key: ValueKey(item.id),
+                    margin: const EdgeInsets.symmetric(vertical: 4),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      child: Row(
                         children: [
-                          Text(
-                            'Rs.${item.price.toStringAsFixed(0)}',
-                            style: GoogleFonts.outfit(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.primaryAmber,
+                          ReorderableDragStartListener(
+                            index: index,
+                            child: const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 4),
+                              child: Icon(
+                                Icons.drag_indicator_rounded,
+                                color: AppTheme.textSecondary,
+                                size: 20,
+                              ),
                             ),
                           ),
                           const SizedBox(width: 8),
-                          Switch(
-                            value: item.isAvailable,
-                            activeColor: AppTheme.primaryAmber,
-                            onChanged: (_) => menuProvider.toggleAvailability(item.id),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: MenuItemImage(
+                              imageUrl: item.effectiveImageUrl,
+                              width: 42,
+                              height: 42,
+                              iconSize: 20,
+                            ),
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.edit_outlined, color: Colors.blueAccent),
-                            onPressed: () => _showAddEditItemDialog(context, existingItem: item),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                            onPressed: () {
-                              showDialog(
-                                context: context,
-                                builder: (ctx) => AlertDialog(
-                                  title: const Text('Confirm Item Deletion'),
-                                  content: Text('Are you sure you want to remove "${item.name}" from the menu?'),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () => Navigator.pop(ctx),
-                                      child: const Text('Cancel'),
-                                    ),
-                                    ElevatedButton(
-                                      style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-                                      onPressed: () {
-                                        menuProvider.deleteItem(item.id);
-                                        Navigator.pop(ctx);
-                                      },
-                                      child: const Text('Delete'),
-                                    ),
-                                  ],
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  item.name,
+                                  style: GoogleFonts.outfit(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                  softWrap: true,
                                 ),
-                              );
-                            },
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Rs.${item.price.toStringAsFixed(0)} • ${item.category}',
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 12,
+                                    color: AppTheme.primaryAmber,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Transform.scale(
+                                scale: 0.75,
+                                child: Switch(
+                                  value: item.isAvailable,
+                                  activeColor: AppTheme.primaryAmber,
+                                  onChanged: (_) => menuProvider.toggleAvailability(item.id),
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.edit_outlined, color: Colors.blueAccent, size: 18),
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                                onPressed: () => _showAddEditItemDialog(context, existingItem: item),
+                              ),
+                              const SizedBox(width: 8),
+                              IconButton(
+                                icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 18),
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                                onPressed: () {
+                                  showDialog(
+                                    context: context,
+                                    builder: (ctx) => AlertDialog(
+                                      title: const Text('Confirm Item Deletion'),
+                                      content: Text('Are you sure you want to remove "${item.name}" from the menu?'),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(ctx),
+                                          child: const Text('Cancel'),
+                                        ),
+                                        ElevatedButton(
+                                          style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+                                          onPressed: () {
+                                            menuProvider.deleteItem(item.id);
+                                            Navigator.pop(ctx);
+                                          },
+                                          child: const Text('Delete'),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -724,23 +746,10 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
                         child: Stack(
                           fit: StackFit.expand,
                           children: [
-                            if (previewUrl.startsWith('http'))
-                              Image.network(
-                                previewUrl,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => const Center(
-                                  child: Icon(Icons.broken_image_rounded, size: 40, color: AppTheme.textSecondary),
-                                ),
-                              )
-                            else if (File(previewUrl).existsSync())
-                              Image.file(
-                                File(previewUrl),
-                                fit: BoxFit.cover,
-                              )
-                            else
-                              const Center(
-                                child: Icon(Icons.image_search_rounded, size: 40, color: AppTheme.primaryAmber),
-                              ),
+                            MenuItemImage(
+                              imageUrl: previewUrl,
+                              iconSize: 40,
+                            ),
 
                             // Overlay Label
                             Positioned(
@@ -808,10 +817,18 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
                                 padding: const EdgeInsets.symmetric(vertical: 10),
                               ),
                               onPressed: () async {
-                                final result = await FilePicker.platform.pickFiles(type: FileType.image);
-                                if (result != null && result.files.single.path != null) {
+                                final picker = ImagePicker();
+                                final XFile? photo = await picker.pickImage(
+                                  source: ImageSource.gallery,
+                                  maxWidth: 400,
+                                  maxHeight: 400,
+                                  imageQuality: 70,
+                                );
+                                if (photo != null) {
+                                  final bytes = await photo.readAsBytes();
+                                  final base64Str = base64Encode(bytes);
                                   setState(() {
-                                    imageCtrl.text = result.files.single.path!;
+                                    imageCtrl.text = 'data:image/jpeg;base64,$base64Str';
                                   });
                                 }
                               },
@@ -828,10 +845,17 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
                               ),
                               onPressed: () async {
                                 final picker = ImagePicker();
-                                final XFile? photo = await picker.pickImage(source: ImageSource.camera);
+                                final XFile? photo = await picker.pickImage(
+                                  source: ImageSource.camera,
+                                  maxWidth: 400,
+                                  maxHeight: 400,
+                                  imageQuality: 70,
+                                );
                                 if (photo != null) {
+                                  final bytes = await photo.readAsBytes();
+                                  final base64Str = base64Encode(bytes);
                                   setState(() {
-                                    imageCtrl.text = photo.path;
+                                    imageCtrl.text = 'data:image/jpeg;base64,$base64Str';
                                   });
                                 }
                               },
@@ -898,7 +922,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
                     if (isEditing) {
                       final updated = existingItem.copyWith(
                         name: nameCtrl.text.trim(),
-                        itemCode: '',
+                        itemCode: codeCtrl.text.trim(),
                         price: price,
                         category: category,
                         description: descCtrl.text.trim(),
@@ -908,7 +932,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
                     } else {
                       final newItem = MenuItem(
                         id: 'menu_${DateTime.now().millisecondsSinceEpoch}',
-                        itemCode: '',
+                        itemCode: codeCtrl.text.trim(),
                         name: nameCtrl.text.trim(),
                         category: category,
                         price: price,
@@ -1363,81 +1387,101 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
                 final formattedDate = DateFormat('dd MMM yyyy, hh:mm a').format(order.timestamp);
 
                 return Card(
+                  margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 0),
                   child: ExpansionTile(
                     leading: Container(
-                      padding: const EdgeInsets.all(10),
+                      padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
                         color: AppTheme.primaryAmber.withValues(alpha: 0.15),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.receipt_long_rounded, color: AppTheme.primaryAmber),
+                      child: const Icon(Icons.receipt_long_rounded, color: AppTheme.primaryAmber, size: 18),
                     ),
                     title: Text(
                       'Bill No: ${order.billNumber} • Rs.${order.totalAmount.toStringAsFixed(0)}',
-                      style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+                      style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13),
                     ),
-                    subtitle: Text('$formattedDate • Paid via ${order.paymentMethod} (${order.orderType})'),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        OutlinedButton.icon(
-                          icon: const Icon(Icons.print_rounded, size: 16),
-                          label: const Text('Reprint'),
-                          style: OutlinedButton.styleFrom(foregroundColor: AppTheme.primaryAmber),
-                          onPressed: () {
-                            showDialog(
-                              context: context,
-                              builder: (_) => ReceiptPreviewDialog(order: order),
-                            );
-                          },
-                        ),
-                        const SizedBox(width: 8),
-                        IconButton(
-                          icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
-                          tooltip: 'Delete Transaction',
-                          onPressed: () {
-                            showDialog(
-                              context: context,
-                              builder: (ctx) => AlertDialog(
-                                title: const Text('Delete Transaction'),
-                                content: Text('Are you sure you want to delete Bill No: ${order.billNumber}? This action cannot be undone.'),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(ctx),
-                                    child: const Text('Cancel'),
-                                  ),
-                                  ElevatedButton(
-                                    style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-                                    onPressed: () {
-                                      sales.deleteOrder(order.id);
-                                      Navigator.pop(ctx);
-                                    },
-                                    child: const Text('Delete'),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                      ],
+                    subtitle: Text(
+                      '$formattedDate • ${order.paymentMethod} (${order.orderType})',
+                      style: GoogleFonts.outfit(fontSize: 11, color: AppTheme.textSecondary),
                     ),
                     children: [
                       Padding(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(12),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Item Breakdown:', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13)),
-                            const SizedBox(height: 6),
+                            Text('Item Breakdown:', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 12)),
+                            const SizedBox(height: 4),
                             ...order.items.map((i) {
-                              return Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text('${i.item.name} x${i.quantity}', style: GoogleFonts.outfit(fontSize: 12)),
-                                  Text('Rs.${i.totalPrice.toStringAsFixed(0)}', style: GoogleFonts.outfit(fontSize: 12)),
-                                ],
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 2),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text('${i.item.name} x${i.quantity}', style: GoogleFonts.outfit(fontSize: 11)),
+                                    Text('Rs.${i.totalPrice.toStringAsFixed(0)}', style: GoogleFonts.outfit(fontSize: 11)),
+                                  ],
+                                ),
                               );
                             }),
+                            const Divider(height: 16),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                OutlinedButton.icon(
+                                  icon: const Icon(Icons.print_rounded, size: 14),
+                                  label: const Text('Reprint', style: TextStyle(fontSize: 11)),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: AppTheme.primaryAmber,
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                    minimumSize: Size.zero,
+                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                  onPressed: () {
+                                    showDialog(
+                                      context: context,
+                                      builder: (_) => ReceiptPreviewDialog(order: order),
+                                    );
+                                  },
+                                ),
+                                const SizedBox(width: 8),
+                                OutlinedButton.icon(
+                                  icon: const Icon(Icons.delete_outline_rounded, size: 14, color: Colors.redAccent),
+                                  label: const Text('Delete', style: TextStyle(color: Colors.redAccent, fontSize: 11)),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: Colors.redAccent,
+                                    side: const BorderSide(color: Colors.redAccent),
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                    minimumSize: Size.zero,
+                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                  onPressed: () {
+                                    showDialog(
+                                      context: context,
+                                      builder: (ctx) => AlertDialog(
+                                        title: const Text('Delete Transaction'),
+                                        content: Text('Are you sure you want to delete Bill No: ${order.billNumber}? This action cannot be undone.'),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () => Navigator.pop(ctx),
+                                            child: const Text('Cancel'),
+                                          ),
+                                          ElevatedButton(
+                                            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+                                            onPressed: () {
+                                              sales.deleteOrder(order.id);
+                                              Navigator.pop(ctx);
+                                            },
+                                            child: const Text('Delete'),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
                           ],
                         ),
                       ),
@@ -1663,35 +1707,6 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
                     controller: _footerController,
                     decoration: const InputDecoration(labelText: 'Footer Thank-You Message'),
                     onChanged: (val) => printerProvider.updateConfig(config.copyWith(footerMessage: val)),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: SwitchListTile(
-                          title: Text('Enable GST / Tax', style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold)),
-                          value: config.taxEnabled,
-                          contentPadding: EdgeInsets.zero,
-                          activeColor: AppTheme.primaryAmber,
-                          onChanged: (val) {
-                            printerProvider.updateConfig(config.copyWith(taxEnabled: val));
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextField(
-                          controller: _taxPercentageController,
-                          enabled: config.taxEnabled,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          decoration: const InputDecoration(labelText: 'GST / Tax Percentage (%)', suffixText: '%'),
-                          onChanged: (val) {
-                            final tax = double.tryParse(val) ?? 0.0;
-                            printerProvider.updateConfig(config.copyWith(taxPercentage: tax));
-                          },
-                        ),
-                      ),
-                    ],
                   ),
                   const SizedBox(height: 12),
                   SwitchListTile(

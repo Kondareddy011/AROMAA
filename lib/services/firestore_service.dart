@@ -8,6 +8,17 @@ import '../models/token_customization.dart';
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
+  FirestoreService() {
+    try {
+      _db.settings = const Settings(
+        persistenceEnabled: true,
+        cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+      );
+    } catch (e) {
+      print('Error configuring Firestore offline persistence settings: $e');
+    }
+  }
+
   // Collection names
   static const String _ordersCollection = 'orders';
   static const String _menuCollection = 'menu_items';

@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -10,6 +9,7 @@ import '../../providers/printer_provider.dart';
 import '../../providers/sales_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../services/bluetooth_printer_service.dart';
+import '../widgets/menu_item_image.dart';
 
 class CheckoutDialog extends StatefulWidget {
   const CheckoutDialog({super.key});
@@ -155,35 +155,15 @@ class _CheckoutDialogState extends State<CheckoutDialog> {
                         child: Row(
                           children: [
                             // Thumbnail
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: SizedBox(
-                                width: 36,
-                                height: 36,
-                                child: item.effectiveImageUrl.startsWith('http')
-                                    ? Image.network(
-                                        item.effectiveImageUrl,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (_, __, ___) => Container(
-                                          color: AppTheme.cardSurface,
-                                          child: const Icon(Icons.coffee_rounded, size: 18, color: AppTheme.primaryAmber),
-                                        ),
-                                      )
-                                    : (File(item.effectiveImageUrl).existsSync()
-                                        ? Image.file(
-                                            File(item.effectiveImageUrl),
-                                            fit: BoxFit.cover,
-                                            errorBuilder: (_, __, ___) => Container(
-                                              color: AppTheme.cardSurface,
-                                              child: const Icon(Icons.coffee_rounded, size: 18, color: AppTheme.primaryAmber),
-                                            ),
-                                          )
-                                        : Container(
-                                            color: AppTheme.cardSurface,
-                                            child: const Icon(Icons.coffee_rounded, size: 18, color: AppTheme.primaryAmber),
-                                          )),
-                              ),
-                            ),
+                             ClipRRect(
+                               borderRadius: BorderRadius.circular(8),
+                               child: MenuItemImage(
+                                 imageUrl: item.effectiveImageUrl,
+                                 width: 36,
+                                 height: 36,
+                                 iconSize: 18,
+                               ),
+                             ),
                             const SizedBox(width: 10),
 
                             // Details

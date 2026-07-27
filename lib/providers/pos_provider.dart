@@ -11,8 +11,8 @@ class POSProvider with ChangeNotifier {
   String _orderType = 'Dine-In'; // Dine-In or Takeaway
   String _paymentMethod = 'UPI / QR'; // Cash, UPI / QR, Card
   double _discountAmount = 0.0;
-  double _taxPercentage = 5.0; // GST 5%
-  bool _taxEnabled = true;
+  double _taxPercentage = 0.0; // GST 0%
+  bool _taxEnabled = false;
 
   List<OrderItem> get cartItems => _cartItems;
   String get orderType => _orderType;

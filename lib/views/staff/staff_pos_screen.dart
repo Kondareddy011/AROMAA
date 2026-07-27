@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -12,6 +11,7 @@ import '../../providers/printer_provider.dart';
 import '../../theme/app_theme.dart';
 import '../login_screen.dart';
 import 'checkout_dialog.dart';
+import '../widgets/menu_item_image.dart';
 
 class StaffPOSScreen extends StatefulWidget {
   const StaffPOSScreen({super.key});
@@ -29,7 +29,7 @@ class _StaffPOSScreenState extends State<StaffPOSScreen> {
     super.initState();
     _refreshTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
       if (mounted) {
-        Provider.of<MenuProvider>(context, listen: false).loadMenuItems();
+        Provider.of<MenuProvider>(context, listen: false).loadMenuItems(forceOnline: true);
       }
     });
   }
@@ -353,7 +353,7 @@ class _StaffPOSScreenState extends State<StaffPOSScreen> {
         // Items Grid
         Expanded(
           child: RefreshIndicator(
-            onRefresh: () => menuProvider.loadMenuItems(),
+            onRefresh: () => menuProvider.loadMenuItems(forceOnline: true),
             color: AppTheme.primaryAmber,
             child: items.isEmpty
                 ? ListView(
@@ -415,37 +415,10 @@ class _StaffPOSScreenState extends State<StaffPOSScreen> {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    item.effectiveImageUrl.startsWith('http')
-                        ? Image.network(
-                            item.effectiveImageUrl,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(
-                              color: AppTheme.cardSurface,
-                              child: const Icon(Icons.restaurant_menu_rounded, size: 36, color: AppTheme.primaryAmber),
-                            ),
-                            loadingBuilder: (context, child, loadingProgress) {
-                              if (loadingProgress == null) return child;
-                              return Container(
-                                color: AppTheme.cardSurface,
-                                child: const Center(
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryAmber),
-                                ),
-                              );
-                            },
-                          )
-                        : (File(item.effectiveImageUrl).existsSync()
-                            ? Image.file(
-                                File(item.effectiveImageUrl),
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => Container(
-                                  color: AppTheme.cardSurface,
-                                  child: const Icon(Icons.restaurant_menu_rounded, size: 36, color: AppTheme.primaryAmber),
-                                ),
-                              )
-                            : Container(
-                                color: AppTheme.cardSurface,
-                                child: const Icon(Icons.restaurant_menu_rounded, size: 36, color: AppTheme.primaryAmber),
-                              )),
+                    MenuItemImage(
+                      imageUrl: item.effectiveImageUrl,
+                      iconSize: 36,
+                    ),
 
                     // Top Gradient Overlay for readability of badges
                     Positioned.fill(
@@ -743,14 +716,16 @@ class _StaffPOSScreenState extends State<StaffPOSScreen> {
                       Text('Rs.${posProvider.subtotal.toStringAsFixed(2)}', style: GoogleFonts.outfit(fontSize: 13)),
                     ],
                   ),
-                  const SizedBox(height: 4),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('GST / Tax (5%):', style: GoogleFonts.outfit(fontSize: 13, color: AppTheme.textSecondary)),
-                      Text('Rs.${posProvider.taxAmount.toStringAsFixed(2)}', style: GoogleFonts.outfit(fontSize: 13)),
-                    ],
-                  ),
+                  if (posProvider.taxEnabled && posProvider.taxPercentage > 0) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('GST / Tax (${posProvider.taxPercentage.toStringAsFixed(0)}%):', style: GoogleFonts.outfit(fontSize: 13, color: AppTheme.textSecondary)),
+                        Text('Rs.${posProvider.taxAmount.toStringAsFixed(2)}', style: GoogleFonts.outfit(fontSize: 13)),
+                      ],
+                    ),
+                  ],
                   const Divider(height: 16),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
