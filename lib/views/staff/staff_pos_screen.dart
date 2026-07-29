@@ -12,6 +12,7 @@ import '../../theme/app_theme.dart';
 import '../login_screen.dart';
 import 'checkout_dialog.dart';
 import '../widgets/menu_item_image.dart';
+import '../widgets/bluetooth_printer_setup_dialog.dart';
 
 class StaffPOSScreen extends StatefulWidget {
   const StaffPOSScreen({super.key});
@@ -104,14 +105,7 @@ class _StaffPOSScreenState extends State<StaffPOSScreen> {
           // Bluetooth Status Pill
           GestureDetector(
             onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(printerProvider.config.isConnected
-                      ? 'Connected to Bluetooth Printer: ${printerProvider.config.deviceName}'
-                      : 'Bluetooth Printer disconnected. Switch to Owner Portal to configure.'),
-                  backgroundColor: printerProvider.config.isConnected ? AppTheme.matchaGreen : Colors.orange,
-                ),
-              );
+              BluetoothPrinterSetupDialog.show(context);
             },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),

@@ -398,6 +398,7 @@ class _CheckoutDialogState extends State<CheckoutDialog> {
                               context: context,
                               order: printOrder,
                               config: printerProvider.config,
+                              systemPrinters: printerProvider.systemPrinters,
                             );
                           }
 

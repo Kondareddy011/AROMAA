@@ -281,10 +281,11 @@ class BluetoothPrinterService {
     required BuildContext context,
     required OrderModel order,
     required PrinterConfig config,
+    List<Printer>? systemPrinters,
   }) async {
     final pdfBytes = await generateThermalReceiptPdf(order: order, config: config);
     try {
-      final printers = await Printing.listPrinters();
+      final printers = systemPrinters ?? await Printing.listPrinters();
       if (printers.isNotEmpty) {
         // Try to find a printer matching deviceName, otherwise find the default one, or the first available
         final printer = printers.firstWhere(

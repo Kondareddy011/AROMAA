@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:printing/printing.dart';
 import '../models/order.dart';
 import '../models/printer_config.dart';
 import '../services/bluetooth_printer_service.dart';
@@ -12,15 +13,25 @@ class PrinterProvider with ChangeNotifier {
   bool _isConnecting = false;
   String? _scanErrorMessage;
   List<Map<String, String>> _discoveredDevices = [];
+  List<Printer> _systemPrinters = [];
 
   PrinterConfig get config => _config;
   bool get isScanning => _isScanning;
   bool get isConnecting => _isConnecting;
   String? get scanErrorMessage => _scanErrorMessage;
   List<Map<String, String>> get discoveredDevices => _discoveredDevices;
+  List<Printer> get systemPrinters => _systemPrinters;
 
   PrinterProvider() {
     loadConfig();
+    loadSystemPrinters();
+  }
+
+  Future<void> loadSystemPrinters() async {
+    try {
+      _systemPrinters = await Printing.listPrinters();
+      notifyListeners();
+    } catch (_) {}
   }
 
   Future<void> loadConfig() async {

@@ -124,10 +124,12 @@ class ReceiptPreviewDialog extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
                     onPressed: () {
+                      final printerProvider = Provider.of<PrinterProvider>(context, listen: false);
                       BluetoothPrinterService.printReceipt(
                         context: context,
                         order: order,
                         config: config,
+                        systemPrinters: printerProvider.systemPrinters,
                       );
                     },
                   ),
