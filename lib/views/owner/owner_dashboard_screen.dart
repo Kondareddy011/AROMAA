@@ -9,7 +9,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../../models/item.dart';
 import '../../models/order.dart';
@@ -1149,20 +1148,33 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
       final bytes = utf8.encode(csvContent);
 
       if (Platform.isAndroid || Platform.isIOS) {
-        final tempDir = await getTemporaryDirectory();
+        Directory? downloadDir;
+        try {
+          if (Platform.isAndroid) {
+            downloadDir = await getDownloadsDirectory();
+          } else {
+            downloadDir = await getApplicationDocumentsDirectory();
+          }
+        } catch (e) {
+          // ignore
+        }
+        downloadDir ??= await getApplicationDocumentsDirectory();
+
         final fileName = 'aromaa_${reportType.toLowerCase().replaceAll(' ', '_')}_report_${DateFormat('yyyyMMdd').format(DateTime.now())}.csv';
-        final file = File('${tempDir.path}/$fileName');
-        await file.writeAsBytes(bytes);
-        await SharePlus.instance.share(
-          ShareParams(
-            files: [XFile(file.path)],
-            text: 'Export $reportType Sales Report',
-          ),
-        );
+        var file = File('${downloadDir.path}/$fileName');
+        
+        try {
+          await file.writeAsBytes(bytes);
+        } catch (e) {
+          final docDir = await getApplicationDocumentsDirectory();
+          file = File('${docDir.path}/$fileName');
+          await file.writeAsBytes(bytes);
+        }
+
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('$reportType report shared successfully'),
+              content: Text('$reportType report downloaded to: ${file.path}'),
               backgroundColor: AppTheme.matchaGreen,
             ),
           );
@@ -1251,20 +1263,33 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
       final bytes = utf8.encode(csvContent);
 
       if (Platform.isAndroid || Platform.isIOS) {
-        final tempDir = await getTemporaryDirectory();
+        Directory? downloadDir;
+        try {
+          if (Platform.isAndroid) {
+            downloadDir = await getDownloadsDirectory();
+          } else {
+            downloadDir = await getApplicationDocumentsDirectory();
+          }
+        } catch (e) {
+          // ignore
+        }
+        downloadDir ??= await getApplicationDocumentsDirectory();
+
         final fileName = 'aromaa_${reportType.toLowerCase().replaceAll(' ', '_')}_details_${DateFormat('yyyyMMdd').format(DateTime.now())}.csv';
-        final file = File('${tempDir.path}/$fileName');
-        await file.writeAsBytes(bytes);
-        await SharePlus.instance.share(
-          ShareParams(
-            files: [XFile(file.path)],
-            text: 'Export $reportType Details',
-          ),
-        );
+        var file = File('${downloadDir.path}/$fileName');
+        
+        try {
+          await file.writeAsBytes(bytes);
+        } catch (e) {
+          final docDir = await getApplicationDocumentsDirectory();
+          file = File('${docDir.path}/$fileName');
+          await file.writeAsBytes(bytes);
+        }
+
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('$reportType details shared successfully'),
+              content: Text('$reportType details downloaded to: ${file.path}'),
               backgroundColor: AppTheme.matchaGreen,
             ),
           );
