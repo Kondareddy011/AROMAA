@@ -8,6 +8,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../models/item.dart';
 import '../../models/order.dart';
@@ -42,6 +44,8 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
   final TextEditingController _gstinController = TextEditingController();
   final TextEditingController _footerController = TextEditingController();
   final TextEditingController _taxPercentageController = TextEditingController();
+  final TextEditingController _currentPinController = TextEditingController();
+  final TextEditingController _newPinController = TextEditingController();
   bool _controllersInitialized = false;
 
   @override
@@ -97,6 +101,8 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
     _gstinController.dispose();
     _footerController.dispose();
     _taxPercentageController.dispose();
+    _currentPinController.dispose();
+    _newPinController.dispose();
     super.dispose();
   }
 
@@ -347,7 +353,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
                   ),
                   SizedBox(width: isWide ? 16 : 0, height: isWide ? 0 : 16),
 
-                  // Top Selling Teas & Snacks
+                  // Items Sold (All)
                   Expanded(
                     flex: isWide ? 1 : 0,
                     child: Card(
@@ -357,49 +363,95 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Top 5 Best Selling Items',
+                              'Items Sold (All)',
                               style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold),
                             ),
                             const SizedBox(height: 16),
-                            if (sales.topSellingItems.isEmpty)
-                              Text('No sales data yet', style: GoogleFonts.outfit(color: AppTheme.textSecondary))
-                            else
-                              ...sales.topSellingItems.map((e) {
-                                return Padding(
-                                  padding: const EdgeInsets.only(bottom: 10),
-                                  child: Row(
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.all(8),
-                                        decoration: BoxDecoration(
-                                          color: AppTheme.primaryAmber.withValues(alpha: 0.15),
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: const Icon(Icons.local_cafe_rounded,
-                                            size: 16, color: AppTheme.primaryAmber),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Text(
-                                          e.key,
-                                          style: GoogleFonts.outfit(fontWeight: FontWeight.w600, fontSize: 14),
-                                        ),
-                                      ),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: AppTheme.cardSurface,
-                                          borderRadius: BorderRadius.circular(12),
-                                        ),
-                                        child: Text(
-                                          '${e.value} sold',
-                                          style: GoogleFonts.outfit(fontSize: 12, color: AppTheme.primaryAmber),
-                                        ),
-                                      ),
-                                    ],
+                            Builder(
+                              builder: (context) {
+                                final menuProvider = Provider.of<MenuProvider>(context);
+                                final allItems = menuProvider.items;
+
+                                // Calculate sold quantity for all items
+                                final soldCounts = <String, int>{};
+                                for (var o in sales.orders) {
+                                  if (o.status == 'Completed') {
+                                    for (var item in o.items) {
+                                      soldCounts[item.item.name] = (soldCounts[item.item.name] ?? 0) + item.quantity;
+                                    }
+                                  }
+                                }
+
+                                // Build a list of all items, with their sold count
+                                final itemsWithSales = allItems.map((item) {
+                                  final count = soldCounts[item.name] ?? 0;
+                                  return MapEntry(item.name, count);
+                                }).toList();
+
+                                // Also include any items that were sold but might not be in the active menu anymore
+                                for (var entry in soldCounts.entries) {
+                                  if (!itemsWithSales.any((element) => element.key == entry.key)) {
+                                    itemsWithSales.add(entry);
+                                  }
+                                }
+
+                                // Sort by count descending
+                                itemsWithSales.sort((a, b) => b.value.compareTo(a.value));
+
+                                if (itemsWithSales.isEmpty) {
+                                  return Text('No sales data yet', style: GoogleFonts.outfit(color: AppTheme.textSecondary));
+                                }
+
+                                return SizedBox(
+                                  height: 220,
+                                  child: Scrollbar(
+                                    thumbVisibility: true,
+                                    child: ListView.builder(
+                                      shrinkWrap: true,
+                                      padding: const EdgeInsets.only(right: 8),
+                                      itemCount: itemsWithSales.length,
+                                      itemBuilder: (context, index) {
+                                        final e = itemsWithSales[index];
+                                        return Padding(
+                                          padding: const EdgeInsets.only(bottom: 10),
+                                          child: Row(
+                                            children: [
+                                              Container(
+                                                padding: const EdgeInsets.all(8),
+                                                decoration: BoxDecoration(
+                                                  color: AppTheme.primaryAmber.withValues(alpha: 0.15),
+                                                  shape: BoxShape.circle,
+                                                ),
+                                                child: const Icon(Icons.local_cafe_rounded,
+                                                    size: 16, color: AppTheme.primaryAmber),
+                                              ),
+                                              const SizedBox(width: 12),
+                                              Expanded(
+                                                child: Text(
+                                                  e.key,
+                                                  style: GoogleFonts.outfit(fontWeight: FontWeight.w600, fontSize: 14),
+                                                ),
+                                              ),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                                decoration: BoxDecoration(
+                                                  color: AppTheme.cardSurface,
+                                                  borderRadius: BorderRadius.circular(12),
+                                                ),
+                                                child: Text(
+                                                  '${e.value} sold',
+                                                  style: GoogleFonts.outfit(fontSize: 12, color: AppTheme.primaryAmber),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      },
+                                    ),
                                   ),
                                 );
-                              }),
+                              }
+                            ),
                           ],
                         ),
                       ),
@@ -1096,24 +1148,45 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
       final csvContent = buffer.toString();
       final bytes = utf8.encode(csvContent);
 
-      final String? path = await FilePicker.platform.saveFile(
-        dialogTitle: 'Export $reportType Sales Report',
-        fileName: 'aromaa_${reportType.toLowerCase().replaceAll(' ', '_')}_report_${DateFormat('yyyyMMdd').format(DateTime.now())}.csv',
-        type: FileType.custom,
-        allowedExtensions: ['csv'],
-        bytes: bytes,
-      );
-
-      if (path != null) {
-        final file = File(path);
+      if (Platform.isAndroid || Platform.isIOS) {
+        final tempDir = await getTemporaryDirectory();
+        final fileName = 'aromaa_${reportType.toLowerCase().replaceAll(' ', '_')}_report_${DateFormat('yyyyMMdd').format(DateTime.now())}.csv';
+        final file = File('${tempDir.path}/$fileName');
         await file.writeAsBytes(bytes);
+        await SharePlus.instance.share(
+          ShareParams(
+            files: [XFile(file.path)],
+            text: 'Export $reportType Sales Report',
+          ),
+        );
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('$reportType report exported successfully to: $path'),
+              content: Text('$reportType report shared successfully'),
               backgroundColor: AppTheme.matchaGreen,
             ),
           );
+        }
+      } else {
+        final String? path = await FilePicker.platform.saveFile(
+          dialogTitle: 'Export $reportType Sales Report',
+          fileName: 'aromaa_${reportType.toLowerCase().replaceAll(' ', '_')}_report_${DateFormat('yyyyMMdd').format(DateTime.now())}.csv',
+          type: FileType.custom,
+          allowedExtensions: ['csv'],
+          bytes: bytes,
+        );
+
+        if (path != null) {
+          final file = File(path);
+          await file.writeAsBytes(bytes);
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('$reportType report exported successfully to: $path'),
+                backgroundColor: AppTheme.matchaGreen,
+              ),
+            );
+          }
         }
       }
     } catch (e) {
@@ -1177,24 +1250,45 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
       final csvContent = buffer.toString();
       final bytes = utf8.encode(csvContent);
 
-      final String? path = await FilePicker.platform.saveFile(
-        dialogTitle: 'Export $reportType Details',
-        fileName: 'aromaa_${reportType.toLowerCase().replaceAll(' ', '_')}_details_${DateFormat('yyyyMMdd').format(DateTime.now())}.csv',
-        type: FileType.custom,
-        allowedExtensions: ['csv'],
-        bytes: bytes,
-      );
-
-      if (path != null) {
-        final file = File(path);
+      if (Platform.isAndroid || Platform.isIOS) {
+        final tempDir = await getTemporaryDirectory();
+        final fileName = 'aromaa_${reportType.toLowerCase().replaceAll(' ', '_')}_details_${DateFormat('yyyyMMdd').format(DateTime.now())}.csv';
+        final file = File('${tempDir.path}/$fileName');
         await file.writeAsBytes(bytes);
+        await SharePlus.instance.share(
+          ShareParams(
+            files: [XFile(file.path)],
+            text: 'Export $reportType Details',
+          ),
+        );
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('$reportType details exported successfully to: $path'),
+              content: Text('$reportType details shared successfully'),
               backgroundColor: AppTheme.matchaGreen,
             ),
           );
+        }
+      } else {
+        final String? path = await FilePicker.platform.saveFile(
+          dialogTitle: 'Export $reportType Details',
+          fileName: 'aromaa_${reportType.toLowerCase().replaceAll(' ', '_')}_details_${DateFormat('yyyyMMdd').format(DateTime.now())}.csv',
+          type: FileType.custom,
+          allowedExtensions: ['csv'],
+          bytes: bytes,
+        );
+
+        if (path != null) {
+          final file = File(path);
+          await file.writeAsBytes(bytes);
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('$reportType details exported successfully to: $path'),
+                backgroundColor: AppTheme.matchaGreen,
+              ),
+            );
+          }
         }
       }
     } catch (e) {
@@ -1499,6 +1593,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
   // --- TAB 4: PRINTER SETUP --- //
   Widget _buildPrinterSetupTab(BuildContext context) {
     final printerProvider = Provider.of<PrinterProvider>(context);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final config = printerProvider.config;
 
     if (!_controllersInitialized && config.cafeName.isNotEmpty) {
@@ -1859,6 +1954,116 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
                         },
                       ),
                     ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Portal Security Settings Card
+          Text(
+            'Portal Security Settings',
+            style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Update Owner Portal PIN',
+                    style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    'Change the 4-digit PIN required to log in to the Owner Portal',
+                    style: GoogleFonts.outfit(fontSize: 11, color: AppTheme.textSecondary),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _currentPinController,
+                          decoration: const InputDecoration(
+                            labelText: 'Current PIN',
+                            hintText: 'Enter old PIN',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                            counterText: '',
+                          ),
+                          keyboardType: TextInputType.number,
+                          maxLength: 4,
+                          obscureText: true,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: _newPinController,
+                          decoration: const InputDecoration(
+                            labelText: 'New PIN',
+                            hintText: 'Enter new 4-digit PIN',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                            counterText: '',
+                          ),
+                          keyboardType: TextInputType.number,
+                          maxLength: 4,
+                          obscureText: true,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryAmber,
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      ),
+                      onPressed: () async {
+                        final currentPin = _currentPinController.text.trim();
+                        final newPin = _newPinController.text.trim();
+                        if (currentPin.length != 4 || newPin.length != 4) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('PIN must be exactly 4 digits.'),
+                              backgroundColor: Colors.orange,
+                            ),
+                          );
+                          return;
+                        }
+                        
+                        final success = await authProvider.updateOwnerPin(currentPin, newPin);
+                        if (success) {
+                          _currentPinController.clear();
+                          _newPinController.clear();
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Owner PIN updated successfully!'),
+                                backgroundColor: AppTheme.matchaGreen,
+                              ),
+                            );
+                          }
+                        } else {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Incorrect current PIN. Update failed.'),
+                                backgroundColor: Colors.redAccent,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                      child: Text('Update PIN', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13)),
+                    ),
                   ),
                 ],
               ),

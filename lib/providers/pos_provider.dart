@@ -18,16 +18,15 @@ class POSProvider with ChangeNotifier {
   String get orderType => _orderType;
   String get paymentMethod => _paymentMethod;
   double get discountAmount => _discountAmount;
-  double get taxPercentage => _taxPercentage;
-  bool get taxEnabled => _taxEnabled;
+  double get taxPercentage => 0.0;
+  bool get taxEnabled => false;
 
   double get subtotal {
     return _cartItems.fold(0.0, (sum, item) => sum + item.totalPrice);
   }
 
   double get taxAmount {
-    if (!_taxEnabled) return 0.0;
-    return (subtotal * (_taxPercentage / 100));
+    return 0.0;
   }
 
   double get grandTotal {
@@ -45,8 +44,8 @@ class POSProvider with ChangeNotifier {
   }
 
   void updateTaxSettings({required bool enabled, required double percentage}) {
-    _taxEnabled = enabled;
-    _taxPercentage = percentage;
+    _taxEnabled = false;
+    _taxPercentage = 0.0;
     notifyListeners();
   }
 
