@@ -1,14 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
-import 'package:file_picker/file_picker.dart';
+import 'dart:typed_data';
 import 'package:image_picker/image_picker.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:file_saver/file_saver.dart';
 
 import '../../models/item.dart';
 import '../../models/order.dart';
@@ -1145,61 +1144,24 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
       });
 
       final csvContent = buffer.toString();
-      final bytes = utf8.encode(csvContent);
+      final bytes = Uint8List.fromList(utf8.encode(csvContent));
 
-      if (Platform.isAndroid || Platform.isIOS) {
-        Directory? downloadDir;
-        try {
-          if (Platform.isAndroid) {
-            downloadDir = await getDownloadsDirectory();
-          } else {
-            downloadDir = await getApplicationDocumentsDirectory();
-          }
-        } catch (e) {
-          // ignore
-        }
-        downloadDir ??= await getApplicationDocumentsDirectory();
+      final fileName = 'aromaa_${reportType.toLowerCase().replaceAll(' ', '_')}_report_${DateFormat('yyyyMMdd').format(DateTime.now())}';
 
-        final fileName = 'aromaa_${reportType.toLowerCase().replaceAll(' ', '_')}_report_${DateFormat('yyyyMMdd').format(DateTime.now())}.csv';
-        var file = File('${downloadDir.path}/$fileName');
-        
-        try {
-          await file.writeAsBytes(bytes);
-        } catch (e) {
-          final docDir = await getApplicationDocumentsDirectory();
-          file = File('${docDir.path}/$fileName');
-          await file.writeAsBytes(bytes);
-        }
+      final String? path = await FileSaver.instance.saveAs(
+        name: fileName,
+        bytes: bytes,
+        fileExtension: 'csv',
+        mimeType: MimeType.csv,
+      );
 
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('$reportType report downloaded to: ${file.path}'),
-              backgroundColor: AppTheme.matchaGreen,
-            ),
-          );
-        }
-      } else {
-        final String? path = await FilePicker.platform.saveFile(
-          dialogTitle: 'Export $reportType Sales Report',
-          fileName: 'aromaa_${reportType.toLowerCase().replaceAll(' ', '_')}_report_${DateFormat('yyyyMMdd').format(DateTime.now())}.csv',
-          type: FileType.custom,
-          allowedExtensions: ['csv'],
-          bytes: bytes,
+      if (path != null && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$reportType report saved successfully to: $path'),
+            backgroundColor: AppTheme.matchaGreen,
+          ),
         );
-
-        if (path != null) {
-          final file = File(path);
-          await file.writeAsBytes(bytes);
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('$reportType report exported successfully to: $path'),
-                backgroundColor: AppTheme.matchaGreen,
-              ),
-            );
-          }
-        }
       }
     } catch (e) {
       if (context.mounted) {
@@ -1260,61 +1222,24 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
       });
 
       final csvContent = buffer.toString();
-      final bytes = utf8.encode(csvContent);
+      final bytes = Uint8List.fromList(utf8.encode(csvContent));
 
-      if (Platform.isAndroid || Platform.isIOS) {
-        Directory? downloadDir;
-        try {
-          if (Platform.isAndroid) {
-            downloadDir = await getDownloadsDirectory();
-          } else {
-            downloadDir = await getApplicationDocumentsDirectory();
-          }
-        } catch (e) {
-          // ignore
-        }
-        downloadDir ??= await getApplicationDocumentsDirectory();
+      final fileName = 'aromaa_${reportType.toLowerCase().replaceAll(' ', '_')}_details_${DateFormat('yyyyMMdd').format(DateTime.now())}';
 
-        final fileName = 'aromaa_${reportType.toLowerCase().replaceAll(' ', '_')}_details_${DateFormat('yyyyMMdd').format(DateTime.now())}.csv';
-        var file = File('${downloadDir.path}/$fileName');
-        
-        try {
-          await file.writeAsBytes(bytes);
-        } catch (e) {
-          final docDir = await getApplicationDocumentsDirectory();
-          file = File('${docDir.path}/$fileName');
-          await file.writeAsBytes(bytes);
-        }
+      final String? path = await FileSaver.instance.saveAs(
+        name: fileName,
+        bytes: bytes,
+        fileExtension: 'csv',
+        mimeType: MimeType.csv,
+      );
 
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('$reportType details downloaded to: ${file.path}'),
-              backgroundColor: AppTheme.matchaGreen,
-            ),
-          );
-        }
-      } else {
-        final String? path = await FilePicker.platform.saveFile(
-          dialogTitle: 'Export $reportType Details',
-          fileName: 'aromaa_${reportType.toLowerCase().replaceAll(' ', '_')}_details_${DateFormat('yyyyMMdd').format(DateTime.now())}.csv',
-          type: FileType.custom,
-          allowedExtensions: ['csv'],
-          bytes: bytes,
+      if (path != null && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$reportType details saved successfully to: $path'),
+            backgroundColor: AppTheme.matchaGreen,
+          ),
         );
-
-        if (path != null) {
-          final file = File(path);
-          await file.writeAsBytes(bytes);
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('$reportType details exported successfully to: $path'),
-                backgroundColor: AppTheme.matchaGreen,
-              ),
-            );
-          }
-        }
       }
     } catch (e) {
       if (context.mounted) {
