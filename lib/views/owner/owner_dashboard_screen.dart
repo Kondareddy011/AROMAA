@@ -9,6 +9,9 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:file_saver/file_saver.dart';
 
+import '../../services/turso_config.dart';
+import '../../services/turso_service.dart';
+
 import '../../models/item.dart';
 import '../../models/order.dart';
 import '../../models/business_profile.dart';
@@ -44,7 +47,10 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
   final TextEditingController _taxPercentageController = TextEditingController();
   final TextEditingController _currentPinController = TextEditingController();
   final TextEditingController _newPinController = TextEditingController();
+  final TextEditingController _tursoUrlController = TextEditingController();
+  final TextEditingController _tursoTokenController = TextEditingController();
   bool _controllersInitialized = false;
+  DateTime _selectedAnalyticsDate = DateTime.now();
 
   @override
   void initState() {
@@ -101,6 +107,8 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
     _taxPercentageController.dispose();
     _currentPinController.dispose();
     _newPinController.dispose();
+    _tursoUrlController.dispose();
+    _tursoTokenController.dispose();
     super.dispose();
   }
 
@@ -179,6 +187,44 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
   Widget _buildSalesAnalyticsTab(BuildContext context) {
     final sales = Provider.of<SalesProvider>(context);
 
+    // Filter completed orders for the selected date
+    final selectedDateOrders = sales.orders.where((o) =>
+        o.timestamp.year == _selectedAnalyticsDate.year &&
+        o.timestamp.month == _selectedAnalyticsDate.month &&
+        o.timestamp.day == _selectedAnalyticsDate.day &&
+        o.status == 'Completed').toList();
+
+    final double selectedDateSalesTotal = selectedDateOrders.fold(0.0, (sum, o) => sum + o.totalAmount);
+    final int selectedDateOrderCount = selectedDateOrders.length;
+
+    // Calculate payment totals for selected date
+    final Map<String, double> selectedDatePaymentTotals = {
+      'UPI / QR': 0.0,
+      'Cash': 0.0,
+      'Card': 0.0,
+    };
+    for (var o in selectedDateOrders) {
+      selectedDatePaymentTotals[o.paymentMethod] = (selectedDatePaymentTotals[o.paymentMethod] ?? 0.0) + o.totalAmount;
+    }
+
+    // Chart daily data (7 days leading up to selected date)
+    final List<Map<String, dynamic>> dailyChartData = [];
+    for (int i = 6; i >= 0; i--) {
+      final date = _selectedAnalyticsDate.subtract(Duration(days: i));
+      final total = sales.orders.where((o) {
+        return o.timestamp.year == date.year &&
+            o.timestamp.month == date.month &&
+            o.timestamp.day == date.day &&
+            o.status == 'Completed';
+      }).fold(0.0, (sum, o) => sum + o.totalAmount);
+
+      dailyChartData.add({
+        'dayLabel': ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][date.weekday - 1],
+        'date': date,
+        'total': total,
+      });
+    }
+
     return RefreshIndicator(
       onRefresh: () async {
         await sales.loadOrders();
@@ -191,9 +237,62 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
         child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Revenue & Overall Sales Breakdown',
-            style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Revenue & Overall Sales Breakdown',
+                    style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    'Viewing details for ${DateFormat('dd MMMM yyyy').format(_selectedAnalyticsDate)}',
+                    style: GoogleFonts.outfit(fontSize: 12, color: AppTheme.textSecondary),
+                  ),
+                ],
+              ),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryAmber.withValues(alpha: 0.15),
+                  foregroundColor: AppTheme.primaryAmber,
+                  elevation: 0,
+                  side: const BorderSide(color: AppTheme.primaryAmber, width: 1.5),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                ),
+                icon: const Icon(Icons.calendar_month_rounded, size: 16),
+                label: Text(
+                  DateFormat('dd MMM').format(_selectedAnalyticsDate),
+                  style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+                onPressed: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: _selectedAnalyticsDate,
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime.now(),
+                    builder: (context, child) {
+                      return Theme(
+                        data: Theme.of(context).copyWith(
+                          colorScheme: const ColorScheme.light(
+                            primary: AppTheme.primaryAmber,
+                            onPrimary: Colors.black,
+                            onSurface: Colors.black,
+                          ),
+                        ),
+                        child: child!,
+                      );
+                    },
+                  );
+                  if (picked != null) {
+                    setState(() {
+                      _selectedAnalyticsDate = picked;
+                    });
+                  }
+                },
+              ),
+            ],
           ),
           const SizedBox(height: 16),
 
@@ -210,18 +309,13 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
                 childAspectRatio: isWide ? 1.6 : 1.4,
                 children: [
                   _buildMetricCard(
-                    title: 'Today Sales',
-                    amount: 'Rs. ${sales.todaySalesTotal.toStringAsFixed(0)}',
-                    subtitle: '${sales.todayOrderCount} Orders Today',
+                    title: 'Selected Day Sales',
+                    amount: 'Rs. ${selectedDateSalesTotal.toStringAsFixed(0)}',
+                    subtitle: '$selectedDateOrderCount Orders',
                     icon: Icons.today_rounded,
                     color: AppTheme.primaryAmber,
                     onDownload: () {
-                      final now = DateTime.now();
-                      final todayOrders = sales.orders.where((o) =>
-                          o.timestamp.year == now.year &&
-                          o.timestamp.month == now.month &&
-                          o.timestamp.day == now.day).toList();
-                      _exportCardReportCsv(context, todayOrders, 'Today Sales');
+                      _exportCardReportCsv(context, selectedDateOrders, 'Sales_${DateFormat('yyyyMMdd').format(_selectedAnalyticsDate)}');
                     },
                   ),
                   _buildMetricCard(
@@ -286,7 +380,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
                   const SizedBox(height: 20),
                   SizedBox(
                     height: 220,
-                    child: _buildSalesLineChart(sales),
+                    child: _buildSalesLineChart(dailyChartData),
                   ),
                 ],
               ),
@@ -315,8 +409,8 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
                               style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold),
                             ),
                             const SizedBox(height: 16),
-                            ...sales.paymentMethodTotals.entries.map((e) {
-                              final total = sales.totalAmountReceived > 0 ? sales.totalAmountReceived : 1.0;
+                            ...selectedDatePaymentTotals.entries.map((e) {
+                              final total = selectedDateSalesTotal > 0 ? selectedDateSalesTotal : 1.0;
                               final pct = (e.value / total * 100);
                               return Padding(
                                 padding: const EdgeInsets.only(bottom: 12),
@@ -361,7 +455,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Items Sold (All)',
+                              'Items Sold (Selected Day)',
                               style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold),
                             ),
                             const SizedBox(height: 16),
@@ -370,13 +464,11 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
                                 final menuProvider = Provider.of<MenuProvider>(context);
                                 final allItems = menuProvider.items;
 
-                                // Calculate sold quantity for all items
+                                // Calculate sold quantity for selected day's orders
                                 final soldCounts = <String, int>{};
-                                for (var o in sales.orders) {
-                                  if (o.status == 'Completed') {
-                                    for (var item in o.items) {
-                                      soldCounts[item.item.name] = (soldCounts[item.item.name] ?? 0) + item.quantity;
-                                    }
+                                for (var o in selectedDateOrders) {
+                                  for (var item in o.items) {
+                                    soldCounts[item.item.name] = (soldCounts[item.item.name] ?? 0) + item.quantity;
                                   }
                                 }
 
@@ -397,7 +489,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
                                 itemsWithSales.sort((a, b) => b.value.compareTo(a.value));
 
                                 if (itemsWithSales.isEmpty) {
-                                  return Text('No sales data yet', style: GoogleFonts.outfit(color: AppTheme.textSecondary));
+                                  return Text('No sales data for this day', style: GoogleFonts.outfit(color: AppTheme.textSecondary));
                                 }
 
                                 return SizedBox(
@@ -459,6 +551,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
               );
             },
           ),
+
         ],
       ),
     ),
@@ -524,9 +617,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
     );
   }
 
-  Widget _buildSalesLineChart(SalesProvider sales) {
-    final dailyData = sales.last7DaysDailySales;
-
+  Widget _buildSalesLineChart(List<Map<String, dynamic>> dailyData) {
     return LineChart(
       LineChartData(
         gridData: const FlGridData(show: false),
@@ -1563,6 +1654,11 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
       _taxPercentageController.text = config.taxPercentage.toString();
     }
 
+    if (_tursoUrlController.text.isEmpty && _tursoTokenController.text.isEmpty) {
+      TursoConfig.getDatabaseUrl().then((val) => _tursoUrlController.text = val);
+      TursoConfig.getAuthToken().then((val) => _tursoTokenController.text = val);
+    }
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -2013,6 +2109,90 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
                         }
                       },
                       child: Text('Update PIN', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Turso Database Settings Card
+          Text(
+            'Turso Database Settings',
+            style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Configure Remote Database Connection',
+                    style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    'Enter your Turso database HTTP URL and authorization token. This syncs POS data across all devices.',
+                    style: GoogleFonts.outfit(fontSize: 11, color: AppTheme.textSecondary),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _tursoUrlController,
+                    decoration: const InputDecoration(
+                      labelText: 'Turso Database URL',
+                      hintText: 'https://...',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _tursoTokenController,
+                    decoration: const InputDecoration(
+                      labelText: 'Turso Auth Token',
+                      hintText: 'Bearer token...',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    obscureText: true,
+                  ),
+                  const SizedBox(height: 16),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryAmber,
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      ),
+                      onPressed: () async {
+                        final url = _tursoUrlController.text.trim();
+                        final token = _tursoTokenController.text.trim();
+                        if (url.isEmpty || token.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Both URL and Auth Token are required.'),
+                              backgroundColor: Colors.orange,
+                            ),
+                          );
+                          return;
+                        }
+
+                        await TursoConfig.saveConfig(url, token);
+                        await TursoService().initDatabase();
+                        
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Turso Database config updated and schema initialized!'),
+                              backgroundColor: AppTheme.matchaGreen,
+                            ),
+                          );
+                        }
+                      },
+                      child: Text('Save & Initialize', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13)),
                     ),
                   ),
                 ],

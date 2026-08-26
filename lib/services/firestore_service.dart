@@ -1,183 +1,45 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/item.dart';
 import '../models/order.dart';
 import '../models/business_profile.dart';
 import '../models/token_customization.dart';
-
+import 'turso_service.dart';
 
 class FirestoreService {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final TursoService _turso = TursoService();
 
-  FirestoreService() {
-    try {
-      _db.settings = const Settings(
-        persistenceEnabled: true,
-        cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
-      );
-    } catch (e) {
-      print('Error configuring Firestore offline persistence settings: $e');
-    }
-  }
-
-  // Collection names
-  static const String _ordersCollection = 'orders';
-  static const String _menuCollection = 'menu_items';
-  static const String _settingsCollection = 'settings';
+  FirestoreService();
 
   // --- MENU METHODS --- //
 
-  Future<List<MenuItem>> getMenuItems() async {
-    try {
-      final snapshot = await _db.collection(_menuCollection).get();
-      return snapshot.docs
-          .map((doc) => MenuItem.fromJson(doc.data()))
-          .toList();
-    } catch (e) {
-      print('Firestore error fetching menu items: $e');
-      return [];
-    }
-  }
+  Future<List<MenuItem>> getMenuItems() => _turso.getMenuItems();
 
-  Future<void> saveMenuItem(MenuItem item) async {
-    try {
-      await _db.collection(_menuCollection).doc(item.id).set(item.toJson());
-    } catch (e) {
-      print('Firestore error saving menu item: $e');
-    }
-  }
+  Future<void> saveMenuItem(MenuItem item) => _turso.saveMenuItem(item);
 
-  Future<void> deleteMenuItem(String id) async {
-    try {
-      await _db.collection(_menuCollection).doc(id).delete();
-    } catch (e) {
-      print('Firestore error deleting menu item: $e');
-    }
-  }
+  Future<void> deleteMenuItem(String id) => _turso.deleteMenuItem(id);
 
   // --- ORDER METHODS --- //
 
-  Future<List<OrderModel>> getOrders() async {
-    try {
-      final snapshot = await _db
-          .collection(_ordersCollection)
-          .orderBy('timestamp', descending: true)
-          .get();
-      return snapshot.docs
-          .map((doc) => OrderModel.fromJson(doc.data()))
-          .toList();
-    } catch (e) {
-      print('Firestore error fetching orders: $e');
-      return [];
-    }
-  }
+  Future<List<OrderModel>> getOrders() => _turso.getOrders();
 
-  Future<void> saveOrder(OrderModel order) async {
-    try {
-      await _db.collection(_ordersCollection).doc(order.id).set(order.toJson());
-    } catch (e) {
-      print('Firestore error saving order: $e');
-    }
-  }
+  Future<void> saveOrder(OrderModel order) => _turso.saveOrder(order);
 
-  Future<void> saveOrders(List<OrderModel> orders) async {
-    final batch = _db.batch();
-    for (var o in orders) {
-      final docRef = _db.collection(_ordersCollection).doc(o.id);
-      batch.set(docRef, o.toJson());
-    }
-    await batch.commit();
-  }
+  Future<void> saveOrders(List<OrderModel> orders) => _turso.saveOrders(orders);
 
-  Future<void> deleteOrder(String id) async {
-    try {
-      await _db.collection(_ordersCollection).doc(id).delete();
-    } catch (e) {
-      print('Firestore error deleting order: $e');
-    }
-  }
+  Future<void> deleteOrder(String id) => _turso.deleteOrder(id);
 
-  Future<void> clearOrders() async {
-    try {
-      final snapshot = await _db.collection(_ordersCollection).get();
-      final batch = _db.batch();
-      for (var doc in snapshot.docs) {
-        batch.delete(doc.reference);
-      }
-      await batch.commit();
-    } catch (e) {
-      print('Firestore error clearing orders: $e');
-    }
-  }
+  Future<void> clearOrders() => _turso.clearOrders();
 
   // --- SETTINGS METHODS --- //
 
-  Future<BusinessProfile?> getBusinessProfile() async {
-    try {
-      final doc = await _db.collection(_settingsCollection).doc('business_profile').get();
-      if (doc.exists && doc.data() != null) {
-        return BusinessProfile.fromJson(doc.data()!);
-      }
-    } catch (e) {
-      print('Firestore error fetching business profile: $e');
-    }
-    return null;
-  }
+  Future<BusinessProfile?> getBusinessProfile() => _turso.getBusinessProfile();
 
-  Future<void> saveBusinessProfile(BusinessProfile profile) async {
-    try {
-      await _db
-          .collection(_settingsCollection)
-          .doc('business_profile')
-          .set(profile.toJson());
-    } catch (e) {
-      print('Firestore error saving business profile: $e');
-    }
-  }
+  Future<void> saveBusinessProfile(BusinessProfile profile) => _turso.saveBusinessProfile(profile);
 
-  Future<TokenCustomization?> getTokenCustomization() async {
-    try {
-      final doc = await _db.collection(_settingsCollection).doc('token_customization').get();
-      if (doc.exists && doc.data() != null) {
-        return TokenCustomization.fromJson(doc.data()!);
-      }
-    } catch (e) {
-      print('Firestore error fetching token customization: $e');
-    }
-    return null;
-  }
+  Future<TokenCustomization?> getTokenCustomization() => _turso.getTokenCustomization();
 
-  Future<void> saveTokenCustomization(TokenCustomization config) async {
-    try {
-      await _db
-          .collection(_settingsCollection)
-          .doc('token_customization')
-          .set(config.toJson());
-    } catch (e) {
-      print('Firestore error saving token customization: $e');
-    }
-  }
+  Future<void> saveTokenCustomization(TokenCustomization config) => _turso.saveTokenCustomization(config);
 
-  Future<List<String>> getCustomCategories() async {
-    try {
-      final doc = await _db.collection(_settingsCollection).doc('custom_categories').get();
-      if (doc.exists && doc.data() != null) {
-        final list = doc.data()!['categories'] as List<dynamic>?;
-        return list?.map((e) => e.toString()).toList() ?? [];
-      }
-    } catch (e) {
-      print('Firestore error fetching custom categories: $e');
-    }
-    return [];
-  }
+  Future<List<String>> getCustomCategories() => _turso.getCustomCategories();
 
-  Future<void> saveCustomCategories(List<String> categories) async {
-    try {
-      await _db
-          .collection(_settingsCollection)
-          .doc('custom_categories')
-          .set({'categories': categories});
-    } catch (e) {
-      print('Firestore error saving custom categories: $e');
-    }
-  }
+  Future<void> saveCustomCategories(List<String> categories) => _turso.saveCustomCategories(categories);
 }

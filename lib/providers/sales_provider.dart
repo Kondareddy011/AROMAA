@@ -29,12 +29,13 @@ class SalesProvider with ChangeNotifier {
     _isLoading = true;
     notifyListeners();
     
-    // Try to load from Firestore first
-    final remoteOrders = await _firestoreService.getOrders();
-    if (remoteOrders.isNotEmpty) {
+    try {
+      // Try to load from remote database
+      final remoteOrders = await _firestoreService.getOrders();
       _orders = remoteOrders;
       await _storageService.saveOrders(_orders); // Cache locally
-    } else {
+    } catch (e) {
+      print('Turso error fetching orders, falling back to cache: $e');
       _orders = await _storageService.getOrders();
     }
     

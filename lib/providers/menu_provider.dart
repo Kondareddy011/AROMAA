@@ -108,32 +108,30 @@ class MenuProvider with ChangeNotifier {
 
       try {
         final remoteItems = await _firestoreService.getMenuItems();
-        if (remoteItems.isNotEmpty) {
-          _items = remoteItems;
-          _items.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
-          final demoItems = _items.where((item) => demoItemIds.contains(item.id)).toList();
-          if (demoItems.isNotEmpty) {
-            _items.removeWhere((item) => demoItemIds.contains(item.id));
-            for (int i = 0; i < _items.length; i++) {
+        _items = remoteItems;
+        _items.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+        final demoItems = _items.where((item) => demoItemIds.contains(item.id)).toList();
+        if (demoItems.isNotEmpty) {
+          _items.removeWhere((item) => demoItemIds.contains(item.id));
+          for (int i = 0; i < _items.length; i++) {
+            _items[i] = _items[i].copyWith(sortOrder: i);
+          }
+          await _storageService.saveMenuItems(_items);
+          for (var demo in demoItems) {
+            await _firestoreService.deleteMenuItem(demo.id);
+          }
+        } else {
+          bool needsReindex = false;
+          for (int i = 0; i < _items.length; i++) {
+            if (_items[i].sortOrder != i) {
               _items[i] = _items[i].copyWith(sortOrder: i);
+              needsReindex = true;
             }
-            await _storageService.saveMenuItems(_items);
-            for (var demo in demoItems) {
-              await _firestoreService.deleteMenuItem(demo.id);
-            }
-          } else {
-            bool needsReindex = false;
-            for (int i = 0; i < _items.length; i++) {
-              if (_items[i].sortOrder != i) {
-                _items[i] = _items[i].copyWith(sortOrder: i);
-                needsReindex = true;
-              }
-            }
-            await _storageService.saveMenuItems(_items);
-            if (needsReindex) {
-              for (var item in _items) {
-                await _firestoreService.saveMenuItem(item);
-              }
+          }
+          await _storageService.saveMenuItems(_items);
+          if (needsReindex) {
+            for (var item in _items) {
+              await _firestoreService.saveMenuItem(item);
             }
           }
         }
