@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'services/turso_service.dart';
-import 'services/migration_service.dart';
 
 import 'providers/auth_provider.dart';
 import 'providers/menu_provider.dart';
@@ -14,7 +13,6 @@ import 'views/login_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await TursoService().initDatabase();
-  await MigrationService.migrateFirestoreToTurso();
   runApp(const AromaaCafeApp());
 }
 

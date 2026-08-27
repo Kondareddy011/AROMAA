@@ -4,11 +4,11 @@ import '../models/business_profile.dart';
 import '../models/token_customization.dart';
 
 import '../services/storage_service.dart';
-import '../services/firestore_service.dart';
+import '../services/turso_service.dart';
 
 class SalesProvider with ChangeNotifier {
   final StorageService _storageService = StorageService();
-  final FirestoreService _firestoreService = FirestoreService();
+  final TursoService _tursoService = TursoService();
 
   List<OrderModel> _orders = [];
   bool _isLoading = false;
@@ -31,7 +31,7 @@ class SalesProvider with ChangeNotifier {
     
     try {
       // Try to load from remote database
-      final remoteOrders = await _firestoreService.getOrders();
+      final remoteOrders = await _tursoService.getOrders();
       _orders = remoteOrders;
       await _storageService.saveOrders(_orders); // Cache locally
     } catch (e) {
@@ -46,8 +46,8 @@ class SalesProvider with ChangeNotifier {
   }
 
   Future<void> loadSettings() async {
-    // Try business profile from Firestore
-    final remoteProfile = await _firestoreService.getBusinessProfile();
+    // Try business profile from Turso
+    final remoteProfile = await _tursoService.getBusinessProfile();
     if (remoteProfile != null) {
       _businessProfile = remoteProfile;
       await _storageService.saveBusinessProfile(remoteProfile);
@@ -55,8 +55,8 @@ class SalesProvider with ChangeNotifier {
       _businessProfile = await _storageService.getBusinessProfile();
     }
 
-    // Try token customization from Firestore
-    final remoteToken = await _firestoreService.getTokenCustomization();
+    // Try token customization from Turso
+    final remoteToken = await _tursoService.getTokenCustomization();
     if (remoteToken != null) {
       _tokenCustomization = remoteToken;
       await _storageService.saveTokenCustomization(remoteToken);
@@ -69,21 +69,21 @@ class SalesProvider with ChangeNotifier {
   Future<void> updateBusinessProfile(BusinessProfile profile) async {
     _businessProfile = profile;
     await _storageService.saveBusinessProfile(profile);
-    await _firestoreService.saveBusinessProfile(profile);
+    await _tursoService.saveBusinessProfile(profile);
     notifyListeners();
   }
 
   Future<void> updateTokenCustomization(TokenCustomization customization) async {
     _tokenCustomization = customization;
     await _storageService.saveTokenCustomization(customization);
-    await _firestoreService.saveTokenCustomization(customization);
+    await _tursoService.saveTokenCustomization(customization);
     notifyListeners();
   }
 
   Future<void> addOrder(OrderModel newOrder) async {
     _orders.insert(0, newOrder);
     await _storageService.saveOrders(_orders);
-    await _firestoreService.saveOrder(newOrder);
+    await _tursoService.saveOrder(newOrder);
     notifyListeners();
   }
 
@@ -96,7 +96,7 @@ class SalesProvider with ChangeNotifier {
       );
       _orders[index] = updatedOrder;
       await _storageService.saveOrders(_orders);
-      await _firestoreService.saveOrder(updatedOrder);
+      await _tursoService.saveOrder(updatedOrder);
       notifyListeners();
     }
   }
@@ -104,14 +104,14 @@ class SalesProvider with ChangeNotifier {
   Future<void> deleteOrder(String orderId) async {
     _orders.removeWhere((o) => o.id == orderId);
     await _storageService.saveOrders(_orders);
-    await _firestoreService.deleteOrder(orderId);
+    await _tursoService.deleteOrder(orderId);
     notifyListeners();
   }
 
   Future<void> clearAllOrders() async {
     _orders.clear();
     await _storageService.clearOrders();
-    await _firestoreService.clearOrders();
+    await _tursoService.clearOrders();
     notifyListeners();
   }
 

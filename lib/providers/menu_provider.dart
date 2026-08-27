@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import '../models/item.dart';
 import '../services/storage_service.dart';
-import '../services/firestore_service.dart';
+import '../services/turso_service.dart';
 
 class MenuProvider with ChangeNotifier {
   final StorageService _storageService = StorageService();
-  final FirestoreService _firestoreService = FirestoreService();
+  final TursoService _tursoService = TursoService();
 
   List<MenuItem> _items = [];
   String _selectedCategory = 'All';
@@ -77,10 +77,10 @@ class MenuProvider with ChangeNotifier {
         await _storageService.saveMenuItems(_items);
       }
 
-      // As a absolute fallback if local is empty, try once from remote
+      // As a fallback if local is empty, try once from remote Turso
       if (_items.isEmpty) {
         try {
-          final remoteItems = await _firestoreService.getMenuItems();
+          final remoteItems = await _tursoService.getMenuItems();
           if (remoteItems.isNotEmpty) {
             _items = remoteItems;
             _items.removeWhere((item) => demoItemIds.contains(item.id));
@@ -91,23 +91,23 @@ class MenuProvider with ChangeNotifier {
             await _storageService.saveMenuItems(_items);
           }
         } catch (e) {
-          print('Local fallback Firestore error: $e');
+          print('Local fallback Turso error: $e');
         }
       }
     } else {
-      // Online mode: force fetch from remote Firestore database and sync to offline storage
+      // Online mode: force fetch from remote Turso database and sync to offline storage
       try {
-        final remoteCats = await _firestoreService.getCustomCategories();
+        final remoteCats = await _tursoService.getCustomCategories();
         if (remoteCats.isNotEmpty) {
           _customCategories = remoteCats;
           await _storageService.saveCustomCategories(_customCategories);
         }
       } catch (e) {
-        print('Firestore fetch categories error: $e');
+        print('Turso fetch categories error: $e');
       }
 
       try {
-        final remoteItems = await _firestoreService.getMenuItems();
+        final remoteItems = await _tursoService.getMenuItems();
         _items = remoteItems;
         _items.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
         final demoItems = _items.where((item) => demoItemIds.contains(item.id)).toList();
@@ -118,7 +118,7 @@ class MenuProvider with ChangeNotifier {
           }
           await _storageService.saveMenuItems(_items);
           for (var demo in demoItems) {
-            await _firestoreService.deleteMenuItem(demo.id);
+            await _tursoService.deleteMenuItem(demo.id);
           }
         } else {
           bool needsReindex = false;
@@ -131,12 +131,12 @@ class MenuProvider with ChangeNotifier {
           await _storageService.saveMenuItems(_items);
           if (needsReindex) {
             for (var item in _items) {
-              await _firestoreService.saveMenuItem(item);
+              await _tursoService.saveMenuItem(item);
             }
           }
         }
       } catch (e) {
-        print('Firestore fetch menu items error: $e');
+        print('Turso fetch menu items error: $e');
       }
     }
 
@@ -154,7 +154,7 @@ class MenuProvider with ChangeNotifier {
     if (!list.contains(nameTrimmed)) {
       _customCategories.add(nameTrimmed);
       await _storageService.saveCustomCategories(_customCategories);
-      await _firestoreService.saveCustomCategories(_customCategories);
+      await _tursoService.saveCustomCategories(_customCategories);
       notifyListeners();
     }
   }
@@ -162,7 +162,7 @@ class MenuProvider with ChangeNotifier {
   Future<void> deleteCategory(String categoryName) async {
     _customCategories.remove(categoryName);
     await _storageService.saveCustomCategories(_customCategories);
-    await _firestoreService.saveCustomCategories(_customCategories);
+    await _tursoService.saveCustomCategories(_customCategories);
     notifyListeners();
   }
 
@@ -180,7 +180,7 @@ class MenuProvider with ChangeNotifier {
     final itemWithOrder = newItem.copyWith(sortOrder: _items.length);
     _items.add(itemWithOrder);
     await _storageService.saveMenuItems(_items);
-    await _firestoreService.saveMenuItem(itemWithOrder);
+    await _tursoService.saveMenuItem(itemWithOrder);
     notifyListeners();
   }
 
@@ -189,7 +189,7 @@ class MenuProvider with ChangeNotifier {
     if (index != -1) {
       _items[index] = updatedItem;
       await _storageService.saveMenuItems(_items);
-      await _firestoreService.saveMenuItem(updatedItem);
+      await _tursoService.saveMenuItem(updatedItem);
       notifyListeners();
     }
   }
@@ -199,7 +199,7 @@ class MenuProvider with ChangeNotifier {
     if (index != -1) {
       _items[index] = _items[index].copyWith(isAvailable: !_items[index].isAvailable);
       await _storageService.saveMenuItems(_items);
-      await _firestoreService.saveMenuItem(_items[index]);
+      await _tursoService.saveMenuItem(_items[index]);
       notifyListeners();
     }
   }
@@ -211,10 +211,10 @@ class MenuProvider with ChangeNotifier {
       _items[i] = _items[i].copyWith(sortOrder: i);
     }
     await _storageService.saveMenuItems(_items);
-    await _firestoreService.deleteMenuItem(itemId);
-    // Save updated index to Firestore
+    await _tursoService.deleteMenuItem(itemId);
+    // Save updated index to Turso
     for (var item in _items) {
-      await _firestoreService.saveMenuItem(item);
+      await _tursoService.saveMenuItem(item);
     }
     notifyListeners();
   }
@@ -237,8 +237,8 @@ class MenuProvider with ChangeNotifier {
         _items.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
 
         await _storageService.saveMenuItems(_items);
-        await _firestoreService.saveMenuItem(_items[mIndexCurrent]);
-        await _firestoreService.saveMenuItem(_items[mIndexPrev]);
+        await _tursoService.saveMenuItem(_items[mIndexCurrent]);
+        await _tursoService.saveMenuItem(_items[mIndexPrev]);
         notifyListeners();
       }
     }
@@ -262,8 +262,8 @@ class MenuProvider with ChangeNotifier {
         _items.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
 
         await _storageService.saveMenuItems(_items);
-        await _firestoreService.saveMenuItem(_items[mIndexCurrent]);
-        await _firestoreService.saveMenuItem(_items[mIndexNext]);
+        await _tursoService.saveMenuItem(_items[mIndexCurrent]);
+        await _tursoService.saveMenuItem(_items[mIndexNext]);
         notifyListeners();
       }
     }
@@ -296,7 +296,7 @@ class MenuProvider with ChangeNotifier {
       final currentItem = filtered[i];
       final mIndex = _items.indexWhere((it) => it.id == currentItem.id);
       if (mIndex != -1) {
-        await _firestoreService.saveMenuItem(_items[mIndex]);
+        await _tursoService.saveMenuItem(_items[mIndex]);
       }
     }
 
