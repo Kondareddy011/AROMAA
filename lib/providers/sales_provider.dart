@@ -235,4 +235,15 @@ class SalesProvider with ChangeNotifier {
     }
     return todayPrintedOrders.map((o) => o.tokenNumber).reduce((a, b) => a > b ? a : b) + 1;
   }
+
+  Future<void> updateOrderStatus(String orderId, String newStatus) async {
+    final index = _orders.indexWhere((o) => o.id == orderId);
+    if (index != -1) {
+      final updatedOrder = _orders[index].copyWith(status: newStatus);
+      _orders[index] = updatedOrder;
+      await _storageService.saveOrders(_orders);
+      await _tursoService.saveOrder(updatedOrder);
+      notifyListeners();
+    }
+  }
 }

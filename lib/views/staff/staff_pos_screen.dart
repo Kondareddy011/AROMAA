@@ -8,11 +8,13 @@ import '../../providers/auth_provider.dart';
 import '../../providers/menu_provider.dart';
 import '../../providers/pos_provider.dart';
 import '../../providers/printer_provider.dart';
+import '../../providers/sales_provider.dart';
 import '../../theme/app_theme.dart';
 import '../login_screen.dart';
 import 'checkout_dialog.dart';
 import '../widgets/menu_item_image.dart';
 import '../widgets/bluetooth_printer_setup_dialog.dart';
+import '../widgets/billed_orders_dialog.dart';
 
 class StaffPOSScreen extends StatefulWidget {
   const StaffPOSScreen({super.key});
@@ -31,6 +33,7 @@ class _StaffPOSScreenState extends State<StaffPOSScreen> {
     _refreshTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
       if (mounted) {
         Provider.of<MenuProvider>(context, listen: false).loadMenuItems(forceOnline: true);
+        Provider.of<SalesProvider>(context, listen: false).loadOrders();
       }
     });
   }
@@ -65,6 +68,9 @@ class _StaffPOSScreenState extends State<StaffPOSScreen> {
     final menuProvider = Provider.of<MenuProvider>(context);
     final posProvider = Provider.of<POSProvider>(context);
     final printerProvider = Provider.of<PrinterProvider>(context);
+    final salesProvider = Provider.of<SalesProvider>(context);
+    
+    final billedCount = salesProvider.orders.where((o) => o.status == 'Billed').length;
 
     final size = MediaQuery.of(context).size;
     final isWide = size.width >= 900;
@@ -138,6 +144,45 @@ class _StaffPOSScreenState extends State<StaffPOSScreen> {
                 ],
               ),
             ),
+          ),
+
+          // Billed Queue Button with Badge
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              IconButton(
+                tooltip: 'Billed Queue',
+                icon: const Icon(Icons.queue_play_next_rounded),
+                onPressed: () {
+                  BilledOrdersDialog.show(context);
+                },
+              ),
+              if (billedCount > 0)
+                Positioned(
+                  right: 4,
+                  top: 4,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: const BoxDecoration(
+                      color: Colors.redAccent,
+                      shape: BoxShape.circle,
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 16,
+                      minHeight: 16,
+                    ),
+                    child: Text(
+                      '$billedCount',
+                      style: GoogleFonts.outfit(
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
           ),
 
           IconButton(

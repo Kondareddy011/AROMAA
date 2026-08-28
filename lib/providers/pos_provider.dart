@@ -142,6 +142,7 @@ class POSProvider with ChangeNotifier {
       orderType: _orderType,
       timestamp: today,
       staffName: staffName,
+      status: 'Billed',
     );
 
     // Save order in Sales Provider
