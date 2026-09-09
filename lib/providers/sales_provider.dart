@@ -124,7 +124,7 @@ class SalesProvider with ChangeNotifier {
       return o.timestamp.year == now.year &&
           o.timestamp.month == now.month &&
           o.timestamp.day == now.day &&
-          o.status == 'Completed';
+          (o.status == 'Completed' || o.status == 'Billed');
     }).fold(0.0, (sum, o) => sum + o.totalAmount);
   }
 
@@ -134,7 +134,7 @@ class SalesProvider with ChangeNotifier {
       return o.timestamp.year == now.year &&
           o.timestamp.month == now.month &&
           o.timestamp.day == now.day &&
-          o.status == 'Completed';
+          (o.status == 'Completed' || o.status == 'Billed');
     }).length;
   }
 
@@ -143,7 +143,8 @@ class SalesProvider with ChangeNotifier {
     final now = DateTime.now();
     final sevenDaysAgo = now.subtract(const Duration(days: 7));
     return _orders.where((o) {
-      return o.timestamp.isAfter(sevenDaysAgo) && o.status == 'Completed';
+      return o.timestamp.isAfter(sevenDaysAgo) &&
+          (o.status == 'Completed' || o.status == 'Billed');
     }).fold(0.0, (sum, o) => sum + o.totalAmount);
   }
 
@@ -153,14 +154,14 @@ class SalesProvider with ChangeNotifier {
     return _orders.where((o) {
       return o.timestamp.year == now.year &&
           o.timestamp.month == now.month &&
-          o.status == 'Completed';
+          (o.status == 'Completed' || o.status == 'Billed');
     }).fold(0.0, (sum, o) => sum + o.totalAmount);
   }
 
   // Lifetime Total Amount Received
   double get totalAmountReceived {
     return _orders
-        .where((o) => o.status == 'Completed')
+        .where((o) => o.status == 'Completed' || o.status == 'Billed')
         .fold(0.0, (sum, o) => sum + o.totalAmount);
   }
 
@@ -172,7 +173,7 @@ class SalesProvider with ChangeNotifier {
       'Card': 0.0,
     };
     for (var o in _orders) {
-      if (o.status == 'Completed') {
+      if (o.status == 'Completed' || o.status == 'Billed') {
         totals[o.paymentMethod] = (totals[o.paymentMethod] ?? 0.0) + o.totalAmount;
       }
     }
@@ -183,7 +184,7 @@ class SalesProvider with ChangeNotifier {
   List<MapEntry<String, int>> get topSellingItems {
     final Map<String, int> counts = {};
     for (var o in _orders) {
-      if (o.status == 'Completed') {
+      if (o.status == 'Completed' || o.status == 'Billed') {
         for (var item in o.items) {
           counts[item.item.name] = (counts[item.item.name] ?? 0) + item.quantity;
         }
@@ -205,7 +206,7 @@ class SalesProvider with ChangeNotifier {
         return o.timestamp.year == date.year &&
             o.timestamp.month == date.month &&
             o.timestamp.day == date.day &&
-            o.status == 'Completed';
+            (o.status == 'Completed' || o.status == 'Billed');
       }).fold(0.0, (sum, o) => sum + o.totalAmount);
 
       list.add({
@@ -245,5 +246,41 @@ class SalesProvider with ChangeNotifier {
       await _tursoService.saveOrder(updatedOrder);
       notifyListeners();
     }
+  }
+
+  Future<int> getNextDailyBillNumber(String lastResetIso) async {
+    try {
+      final remoteOrders = await _tursoService.getOrders();
+      _orders = remoteOrders;
+      await _storageService.saveOrders(_orders);
+    } catch (e) {
+      print('Turso error fetching latest orders for bill generation: $e');
+    }
+    _orders.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    notifyListeners();
+
+    final today = DateTime.now();
+    final lastReset = DateTime.tryParse(lastResetIso) ?? DateTime(2020, 1, 1);
+    
+    final todayBills = _orders.where((o) =>
+        !o.billNumber.endsWith('-000') &&
+        o.timestamp.year == today.year &&
+        o.timestamp.month == today.month &&
+        o.timestamp.day == today.day &&
+        o.timestamp.isAfter(lastReset));
+
+    if (todayBills.isEmpty) {
+      return 1;
+    }
+    
+    final seqs = todayBills.map((o) {
+      final parts = o.billNumber.split('-');
+      if (parts.length >= 3) {
+        return int.tryParse(parts[2]) ?? 0;
+      }
+      return 0;
+    });
+    
+    return seqs.reduce((a, b) => a > b ? a : b) + 1;
   }
 }

@@ -187,12 +187,12 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
   Widget _buildSalesAnalyticsTab(BuildContext context) {
     final sales = Provider.of<SalesProvider>(context);
 
-    // Filter completed orders for the selected date
+    // Filter completed and billed orders for the selected date
     final selectedDateOrders = sales.orders.where((o) =>
         o.timestamp.year == _selectedAnalyticsDate.year &&
         o.timestamp.month == _selectedAnalyticsDate.month &&
         o.timestamp.day == _selectedAnalyticsDate.day &&
-        o.status == 'Completed').toList();
+        (o.status == 'Completed' || o.status == 'Billed')).toList();
 
     final double selectedDateSalesTotal = selectedDateOrders.fold(0.0, (sum, o) => sum + o.totalAmount);
     final int selectedDateOrderCount = selectedDateOrders.length;
@@ -215,7 +215,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
         return o.timestamp.year == date.year &&
             o.timestamp.month == date.month &&
             o.timestamp.day == date.day &&
-            o.status == 'Completed';
+            (o.status == 'Completed' || o.status == 'Billed');
       }).fold(0.0, (sum, o) => sum + o.totalAmount);
 
       dailyChartData.add({
@@ -327,7 +327,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
                     onDownload: () {
                       final now = DateTime.now();
                       final startOfWeek = now.subtract(const Duration(days: 7));
-                      final weeklyOrders = sales.orders.where((o) => o.timestamp.isAfter(startOfWeek)).toList();
+                      final weeklyOrders = sales.orders.where((o) => o.timestamp.isAfter(startOfWeek) && (o.status == 'Completed' || o.status == 'Billed')).toList();
                       _exportCardReportCsv(context, weeklyOrders, 'Weekly Sales');
                     },
                   ),
@@ -340,7 +340,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
                     onDownload: () {
                       final now = DateTime.now();
                       final startOfMonth = now.subtract(const Duration(days: 30));
-                      final monthlyOrders = sales.orders.where((o) => o.timestamp.isAfter(startOfMonth)).toList();
+                      final monthlyOrders = sales.orders.where((o) => o.timestamp.isAfter(startOfMonth) && (o.status == 'Completed' || o.status == 'Billed')).toList();
                       _exportCardReportCsv(context, monthlyOrders, 'Monthly Sales');
                     },
                   ),
@@ -351,7 +351,8 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
                     icon: Icons.account_balance_wallet_rounded,
                     color: Colors.purpleAccent,
                     onDownload: () {
-                      _exportCardReportCsv(context, sales.orders, 'Total Revenue');
+                      final allOrders = sales.orders.where((o) => o.status == 'Completed' || o.status == 'Billed').toList();
+                      _exportCardReportCsv(context, allOrders, 'Total Revenue');
                     },
                   ),
                 ],
@@ -1438,23 +1439,26 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
                           filteredOrders = sales.orders.where((o) {
                             return o.timestamp.year == now.year &&
                                 o.timestamp.month == now.month &&
-                                o.timestamp.day == now.day;
+                                o.timestamp.day == now.day &&
+                                (o.status == 'Completed' || o.status == 'Billed');
                           }).toList();
                         } else if (value == 'weekly') {
                           reportType = 'Weekly';
                           final startOfWeek = now.subtract(const Duration(days: 7));
                           filteredOrders = sales.orders.where((o) {
-                            return o.timestamp.isAfter(startOfWeek);
+                            return o.timestamp.isAfter(startOfWeek) &&
+                                (o.status == 'Completed' || o.status == 'Billed');
                           }).toList();
                         } else if (value == 'monthly') {
                           reportType = 'Monthly';
                           final startOfMonth = now.subtract(const Duration(days: 30));
                           filteredOrders = sales.orders.where((o) {
-                            return o.timestamp.isAfter(startOfMonth);
+                            return o.timestamp.isAfter(startOfMonth) &&
+                                (o.status == 'Completed' || o.status == 'Billed');
                           }).toList();
                         } else if (value == 'total') {
                           reportType = 'Total Revenue';
-                          filteredOrders = sales.orders;
+                          filteredOrders = sales.orders.where((o) => o.status == 'Completed' || o.status == 'Billed').toList();
                         }
 
                         _exportSalesReportCsv(context, filteredOrders, reportType);

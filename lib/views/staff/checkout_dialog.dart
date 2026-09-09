@@ -380,8 +380,9 @@ class _CheckoutDialogState extends State<CheckoutDialog> {
 
                           // 3. Compute what the tentative token number and bill number will be
                           final tentativeToken = salesProvider.getNextDailyTokenNumber(printerProvider.config.tokenResetTime);
+                          final tentativeBillSeq = await salesProvider.getNextDailyBillNumber(printerProvider.config.tokenResetTime);
                           final today = DateTime.now();
-                          final tentativeBillNum = 'ARM-${DateFormat('yyMMdd').format(today)}-${tentativeToken.toString().padLeft(3, '0')}';
+                          final tentativeBillNum = 'ARM-${DateFormat('yyMMdd').format(today)}-${tentativeBillSeq.toString().padLeft(3, '0')}';
 
                           // 4. Construct printOrder with the tentative details for printing
                           final printOrder = order.copyWith(
