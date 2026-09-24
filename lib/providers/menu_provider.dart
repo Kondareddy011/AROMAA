@@ -91,7 +91,7 @@ class MenuProvider with ChangeNotifier {
             await _storageService.saveMenuItems(_items);
           }
         } catch (e) {
-          print('Local fallback Turso error: $e');
+          debugPrint('Local fallback Turso error: $e');
         }
       }
     } else {
@@ -103,7 +103,7 @@ class MenuProvider with ChangeNotifier {
           await _storageService.saveCustomCategories(_customCategories);
         }
       } catch (e) {
-        print('Turso fetch categories error: $e');
+        debugPrint('Turso fetch categories error: $e');
       }
 
       try {
@@ -136,7 +136,7 @@ class MenuProvider with ChangeNotifier {
           }
         }
       } catch (e) {
-        print('Turso fetch menu items error: $e');
+        debugPrint('Turso fetch menu items error: $e');
       }
     }
 

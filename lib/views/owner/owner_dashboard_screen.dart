@@ -14,8 +14,6 @@ import '../../services/turso_service.dart';
 
 import '../../models/item.dart';
 import '../../models/order.dart';
-import '../../models/business_profile.dart';
-import '../../models/token_customization.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../providers/menu_provider.dart';
@@ -844,19 +842,6 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
     if (!availableCategories.contains(category) && availableCategories.isNotEmpty) {
       category = availableCategories.first;
     }
-
-    // Curated high quality demo preset images for 1-click selection
-    final Map<String, String> demoPresets = {
-      'Kulhad Tea': 'https://images.unsplash.com/photo-1576092768241-dec231879fc3?w=500&auto=format&fit=crop',
-      'Ginger Tea': 'https://images.unsplash.com/photo-1561336313-0bd5e0b27ec8?w=500&auto=format&fit=crop',
-      'Cold Tea': 'https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=500&auto=format&fit=crop',
-      'Lemon Mint': 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=500&auto=format&fit=crop',
-      'Matcha': 'https://images.unsplash.com/photo-1536256263959-770b48d82b0a?w=500&auto=format&fit=crop',
-      'Bun Maska': 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=500&auto=format&fit=crop',
-      'Samosa': 'https://images.unsplash.com/photo-1601050690597-df0568f70950?w=500&auto=format&fit=crop',
-      'Sandwich': 'https://images.unsplash.com/photo-1528735602780-2552fd46c7af?w=500&auto=format&fit=crop',
-      'Brownie': 'https://images.unsplash.com/photo-1606313564200-e75d5e30476c?w=500&auto=format&fit=crop',
-    };
 
     showDialog(
       context: context,

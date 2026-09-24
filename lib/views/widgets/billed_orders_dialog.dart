@@ -56,11 +56,38 @@ class BilledOrdersDialog extends StatelessWidget {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
+                    if (billedOrders.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.redAccent.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.redAccent.withValues(alpha: 0.4)),
+                        ),
+                        child: Text(
+                          '${billedOrders.length}',
+                          style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.redAccent),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(context),
+                Row(
+                  children: [
+                    if (billedOrders.isNotEmpty)
+                      TextButton.icon(
+                        icon: const Icon(Icons.done_all_rounded, size: 16, color: AppTheme.matchaGreen),
+                        label: const Text('Deliver All', style: TextStyle(color: AppTheme.matchaGreen, fontWeight: FontWeight.bold, fontSize: 12)),
+                        onPressed: () async {
+                          await salesProvider.markAllBilledAsDelivered();
+                        },
+                      ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -224,14 +251,6 @@ class BilledOrdersDialog extends StatelessWidget {
                                       ),
                                       onPressed: () async {
                                         await salesProvider.updateOrderStatus(order.id, 'Completed');
-                                        if (context.mounted) {
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(
-                                              content: Text('Order Token #${order.tokenNumber} marked as Delivered!'),
-                                              backgroundColor: AppTheme.matchaGreen,
-                                            ),
-                                          );
-                                        }
                                       },
                                     ),
                                   ],

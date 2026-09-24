@@ -30,10 +30,10 @@ class _StaffPOSScreenState extends State<StaffPOSScreen> {
   @override
   void initState() {
     super.initState();
-    _refreshTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+    _refreshTimer = Timer.periodic(const Duration(seconds: 20), (timer) {
       if (mounted) {
         Provider.of<MenuProvider>(context, listen: false).loadMenuItems(forceOnline: true);
-        Provider.of<SalesProvider>(context, listen: false).loadOrders();
+        Provider.of<SalesProvider>(context, listen: false).loadOrders(silent: true);
       }
     });
   }

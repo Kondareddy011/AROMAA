@@ -4,6 +4,6 @@ import 'package:aroma/main.dart';
 void main() {
   testWidgets('Aroma Cafe app loads successfully', (WidgetTester tester) async {
     await tester.pumpWidget(const AromaaCafeApp());
-    expect(find.text('AROMA TEA CAFE'), findsOneWidget);
+    expect(find.text('AROMAA CAFE'), findsOneWidget);
   });
 }

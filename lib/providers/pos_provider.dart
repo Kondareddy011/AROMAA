@@ -18,15 +18,16 @@ class POSProvider with ChangeNotifier {
   String get orderType => _orderType;
   String get paymentMethod => _paymentMethod;
   double get discountAmount => _discountAmount;
-  double get taxPercentage => 0.0;
-  bool get taxEnabled => false;
+  double get taxPercentage => _taxPercentage;
+  bool get taxEnabled => _taxEnabled;
 
   double get subtotal {
     return _cartItems.fold(0.0, (sum, item) => sum + item.totalPrice);
   }
 
   double get taxAmount {
-    return 0.0;
+    if (!_taxEnabled || _taxPercentage <= 0) return 0.0;
+    return (subtotal - _discountAmount) * (_taxPercentage / 100.0);
   }
 
   double get grandTotal {
@@ -44,8 +45,8 @@ class POSProvider with ChangeNotifier {
   }
 
   void updateTaxSettings({required bool enabled, required double percentage}) {
-    _taxEnabled = false;
-    _taxPercentage = 0.0;
+    _taxEnabled = enabled;
+    _taxPercentage = percentage;
     notifyListeners();
   }
 
@@ -127,12 +128,14 @@ class POSProvider with ChangeNotifier {
 
     final id = const Uuid().v4();
     final today = DateTime.now();
-    final billNum = 'ARM-${DateFormat('yyMMdd').format(today)}-000'; // Token 0 unassigned placeholder
+    final tokenNumber = salesProvider.getNextDailyTokenNumber(printerConfig.tokenResetTime);
+    final billSeq = salesProvider.getNextDailyBillNumber(printerConfig.tokenResetTime);
+    final billNum = 'ARM-${DateFormat('yyMMdd').format(today)}-${billSeq.toString().padLeft(3, '0')}';
 
     final order = OrderModel(
       id: id,
       billNumber: billNum,
-      tokenNumber: 0,
+      tokenNumber: tokenNumber,
       items: List.from(_cartItems),
       subtotal: subtotal,
       taxAmount: taxAmount,
@@ -145,7 +148,7 @@ class POSProvider with ChangeNotifier {
       status: 'Billed',
     );
 
-    // Save order in Sales Provider
+    // Save order in Sales Provider (instantly updates UI and saves in background)
     await salesProvider.addOrder(order);
 
     // Clear cart

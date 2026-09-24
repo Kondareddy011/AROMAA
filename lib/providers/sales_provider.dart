@@ -25,22 +25,44 @@ class SalesProvider with ChangeNotifier {
     loadSettings();
   }
 
-  Future<void> loadOrders() async {
-    _isLoading = true;
-    notifyListeners();
-    
-    try {
-      // Try to load from remote database
-      final remoteOrders = await _tursoService.getOrders();
-      _orders = remoteOrders;
-      await _storageService.saveOrders(_orders); // Cache locally
-    } catch (e) {
-      print('Turso error fetching orders, falling back to cache: $e');
-      _orders = await _storageService.getOrders();
+  Future<void> loadOrders({bool silent = false}) async {
+    if (!silent) {
+      _isLoading = true;
+      notifyListeners();
     }
     
-    // Sort descending by date
-    _orders.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    try {
+      // Load from remote database
+      final remoteOrders = await _tursoService.getOrders();
+      
+      // Merge remote orders with local orders so completed local orders are never reverted back to Billed
+      final Map<String, OrderModel> merged = {};
+      for (var r in remoteOrders) {
+        merged[r.id] = r;
+      }
+      
+      for (var l in _orders) {
+        if (merged.containsKey(l.id)) {
+          // If local order is marked Completed but remote is still Billed, keep local Completed!
+          if (l.status == 'Completed' && merged[l.id]!.status == 'Billed') {
+            merged[l.id] = merged[l.id]!.copyWith(status: 'Completed');
+          }
+        } else {
+          merged[l.id] = l;
+        }
+      }
+      
+      _orders = merged.values.toList();
+      _orders.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+      await _storageService.saveOrders(_orders); // Cache locally
+    } catch (e) {
+      debugPrint('Turso error fetching orders, falling back to cache: $e');
+      if (_orders.isEmpty) {
+        _orders = await _storageService.getOrders();
+        _orders.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+      }
+    }
+    
     _isLoading = false;
     notifyListeners();
   }
@@ -82,9 +104,13 @@ class SalesProvider with ChangeNotifier {
 
   Future<void> addOrder(OrderModel newOrder) async {
     _orders.insert(0, newOrder);
-    await _storageService.saveOrders(_orders);
-    await _tursoService.saveOrder(newOrder);
     notifyListeners();
+    _storageService.saveOrders(_orders);
+    try {
+      await _tursoService.saveOrder(newOrder);
+    } catch (e) {
+      debugPrint('Turso error saving order: $e');
+    }
   }
 
   Future<void> updateOrderToken(String orderId, int tokenNumber, String billNumber) async {
@@ -95,24 +121,36 @@ class SalesProvider with ChangeNotifier {
         billNumber: billNumber,
       );
       _orders[index] = updatedOrder;
-      await _storageService.saveOrders(_orders);
-      await _tursoService.saveOrder(updatedOrder);
       notifyListeners();
+      _storageService.saveOrders(_orders);
+      try {
+        await _tursoService.saveOrder(updatedOrder);
+      } catch (e) {
+        debugPrint('Turso error updating token: $e');
+      }
     }
   }
 
   Future<void> deleteOrder(String orderId) async {
     _orders.removeWhere((o) => o.id == orderId);
-    await _storageService.saveOrders(_orders);
-    await _tursoService.deleteOrder(orderId);
     notifyListeners();
+    _storageService.saveOrders(_orders);
+    try {
+      await _tursoService.deleteOrder(orderId);
+    } catch (e) {
+      debugPrint('Turso error deleting order: $e');
+    }
   }
 
   Future<void> clearAllOrders() async {
     _orders.clear();
-    await _storageService.clearOrders();
-    await _tursoService.clearOrders();
     notifyListeners();
+    _storageService.clearOrders();
+    try {
+      await _tursoService.clearOrders();
+    } catch (e) {
+      debugPrint('Turso error clearing orders: $e');
+    }
   }
 
   // --- ANALYTICS CALCULATIONS --- //
@@ -242,23 +280,32 @@ class SalesProvider with ChangeNotifier {
     if (index != -1) {
       final updatedOrder = _orders[index].copyWith(status: newStatus);
       _orders[index] = updatedOrder;
-      await _storageService.saveOrders(_orders);
-      await _tursoService.saveOrder(updatedOrder);
       notifyListeners();
+      _storageService.saveOrders(_orders);
+      try {
+        await _tursoService.updateOrderStatus(orderId, newStatus);
+      } catch (e) {
+        debugPrint('Turso error updating order status: $e');
+      }
     }
   }
 
-  Future<int> getNextDailyBillNumber(String lastResetIso) async {
-    try {
-      final remoteOrders = await _tursoService.getOrders();
-      _orders = remoteOrders;
-      await _storageService.saveOrders(_orders);
-    } catch (e) {
-      print('Turso error fetching latest orders for bill generation: $e');
+  Future<void> markAllBilledAsDelivered() async {
+    for (int i = 0; i < _orders.length; i++) {
+      if (_orders[i].status == 'Billed') {
+        _orders[i] = _orders[i].copyWith(status: 'Completed');
+      }
     }
-    _orders.sort((a, b) => b.timestamp.compareTo(a.timestamp));
     notifyListeners();
+    _storageService.saveOrders(_orders);
+    try {
+      await _tursoService.markAllBilledAsCompleted();
+    } catch (e) {
+      debugPrint('Turso error marking all billed completed: $e');
+    }
+  }
 
+  int getNextDailyBillNumber(String lastResetIso) {
     final today = DateTime.now();
     final lastReset = DateTime.tryParse(lastResetIso) ?? DateTime(2020, 1, 1);
     

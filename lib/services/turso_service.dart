@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/item.dart';
 import '../models/order.dart';
@@ -41,13 +42,14 @@ class TursoService {
         if (type == 'null') {
           val = null;
         } else if (type == 'integer') {
-          val = int.tryParse(valObj['value'] as String) ?? 0;
+          val = int.tryParse(valObj['value']?.toString() ?? '') ?? 0;
         } else if (type == 'float') {
-          val = (valObj['value'] as num).toDouble();
+          final raw = valObj['value'];
+          val = raw is num ? raw.toDouble() : (double.tryParse(raw?.toString() ?? '') ?? 0.0);
         } else if (type == 'text') {
-          val = valObj['value'] as String;
+          val = valObj['value']?.toString();
         } else if (type == 'blob') {
-          val = valObj['base64'] as String;
+          val = valObj['base64']?.toString();
         }
 
         rowMap[colName] = val;
@@ -151,9 +153,9 @@ class TursoService {
           'type': 'close'
         }
       ]);
-      print('Turso Database schema initialized successfully');
+      debugPrint('Turso Database schema initialized successfully');
     } catch (e) {
-      print('Turso initDatabase error: $e');
+      debugPrint('Turso initDatabase error: $e');
     }
   }
 
@@ -181,7 +183,7 @@ class TursoService {
         return MenuItem.fromJson(row);
       }).toList();
     } catch (e) {
-      print('Turso error fetching menu items: $e');
+      debugPrint('Turso error fetching menu items: $e');
       rethrow;
     }
   }
@@ -215,7 +217,7 @@ class TursoService {
         }
       ]);
     } catch (e) {
-      print('Turso error saving menu item: $e');
+      debugPrint('Turso error saving menu item: $e');
     }
   }
 
@@ -234,7 +236,7 @@ class TursoService {
         }
       ]);
     } catch (e) {
-      print('Turso error deleting menu item: $e');
+      debugPrint('Turso error deleting menu item: $e');
     }
   }
 
@@ -263,7 +265,7 @@ class TursoService {
         return OrderModel.fromJson(row);
       }).toList();
     } catch (e) {
-      print('Turso error fetching orders: $e');
+      debugPrint('Turso error fetching orders: $e');
       rethrow;
     }
   }
@@ -301,7 +303,7 @@ class TursoService {
         }
       ]);
     } catch (e) {
-      print('Turso error saving order: $e');
+      debugPrint('Turso error saving order: $e');
     }
   }
 
@@ -339,7 +341,47 @@ class TursoService {
       requests.add({'type': 'close'});
       await _executePipeline(requests);
     } catch (e) {
-      print('Turso error saving batch orders: $e');
+      debugPrint('Turso error saving batch orders: $e');
+    }
+  }
+
+  Future<void> updateOrderStatus(String orderId, String newStatus) async {
+    try {
+      await _executePipeline([
+        {
+          'type': 'execute',
+          'stmt': {
+            'sql': 'UPDATE orders SET status = ? WHERE id = ?;',
+            'args': [
+              _toHranaValue(newStatus),
+              _toHranaValue(orderId),
+            ]
+          }
+        },
+        {
+          'type': 'close'
+        }
+      ]);
+    } catch (e) {
+      debugPrint('Turso error updating order status: $e');
+    }
+  }
+
+  Future<void> markAllBilledAsCompleted() async {
+    try {
+      await _executePipeline([
+        {
+          'type': 'execute',
+          'stmt': {
+            'sql': "UPDATE orders SET status = 'Completed' WHERE status = 'Billed';",
+          }
+        },
+        {
+          'type': 'close'
+        }
+      ]);
+    } catch (e) {
+      debugPrint('Turso error marking all billed orders completed: $e');
     }
   }
 
@@ -358,7 +400,7 @@ class TursoService {
         }
       ]);
     } catch (e) {
-      print('Turso error deleting order: $e');
+      debugPrint('Turso error deleting order: $e');
     }
   }
 
@@ -376,7 +418,7 @@ class TursoService {
         }
       ]);
     } catch (e) {
-      print('Turso error clearing orders: $e');
+      debugPrint('Turso error clearing orders: $e');
     }
   }
 
@@ -403,7 +445,7 @@ class TursoService {
         return BusinessProfile.fromJson(val);
       }
     } catch (e) {
-      print('Turso error fetching business profile: $e');
+      debugPrint('Turso error fetching business profile: $e');
     }
     return null;
   }
@@ -425,7 +467,7 @@ class TursoService {
         }
       ]);
     } catch (e) {
-      print('Turso error saving business profile: $e');
+      debugPrint('Turso error saving business profile: $e');
     }
   }
 
@@ -450,7 +492,7 @@ class TursoService {
         return TokenCustomization.fromJson(val);
       }
     } catch (e) {
-      print('Turso error fetching token customization: $e');
+      debugPrint('Turso error fetching token customization: $e');
     }
     return null;
   }
@@ -472,7 +514,7 @@ class TursoService {
         }
       ]);
     } catch (e) {
-      print('Turso error saving token customization: $e');
+      debugPrint('Turso error saving token customization: $e');
     }
   }
 
@@ -498,7 +540,7 @@ class TursoService {
         return list?.map((e) => e.toString()).toList() ?? [];
       }
     } catch (e) {
-      print('Turso error fetching custom categories: $e');
+      debugPrint('Turso error fetching custom categories: $e');
     }
     return [];
   }
@@ -520,7 +562,7 @@ class TursoService {
         }
       ]);
     } catch (e) {
-      print('Turso error saving custom categories: $e');
+      debugPrint('Turso error saving custom categories: $e');
     }
   }
 }

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
@@ -366,7 +365,7 @@ class _CheckoutDialogState extends State<CheckoutDialog> {
                         padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
                       onPressed: () async {
-                        // 1. Create order with token 0
+                        // 1. Create order with correct token number & bill number immediately
                         final order = await posProvider.checkout(
                           staffName: authProvider.activeStaffName,
                           salesProvider: salesProvider,
@@ -375,51 +374,34 @@ class _CheckoutDialogState extends State<CheckoutDialog> {
 
                         if (!context.mounted) return;
                         if (order != null) {
-                          // 2. Close checkout dialog
+                          // 2. Close checkout dialog immediately
                           Navigator.pop(context);
 
-                          // 3. Compute what the tentative token number and bill number will be
-                          final tentativeToken = salesProvider.getNextDailyTokenNumber(printerProvider.config.tokenResetTime);
-                          final tentativeBillSeq = await salesProvider.getNextDailyBillNumber(printerProvider.config.tokenResetTime);
-                          final today = DateTime.now();
-                          final tentativeBillNum = 'ARM-${DateFormat('yyMMdd').format(today)}-${tentativeBillSeq.toString().padLeft(3, '0')}';
-
-                          // 4. Construct printOrder with the tentative details for printing
-                          final printOrder = order.copyWith(
-                            tokenNumber: tentativeToken,
-                            billNumber: tentativeBillNum,
-                          );
-
-                          // 5. Try printing printOrder
+                          // 3. Print receipt directly / via Bluetooth
                           bool printSuccess = false;
                           if (printerProvider.config.isConnected) {
-                            printSuccess = await printerProvider.printReceiptDirectly(printOrder);
+                            printSuccess = await printerProvider.printReceiptDirectly(order);
                           } else {
                             printSuccess = await BluetoothPrinterService.printReceipt(
                               context: context,
-                              order: printOrder,
+                              order: order,
                               config: printerProvider.config,
                               systemPrinters: printerProvider.systemPrinters,
                             );
                           }
 
-                          // 6. If print succeeded, write the assigned token & bill number to database/state!
-                          if (printSuccess) {
-                            await salesProvider.updateOrderToken(order.id, tentativeToken, tentativeBillNum);
-                            if (context.mounted) {
+                          if (context.mounted) {
+                            if (printSuccess) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text('Order Checked Out & Token #$tentativeToken Printed!'),
+                                  content: Text('Order Checked Out & Token #${order.tokenNumber} Printed!'),
                                   backgroundColor: AppTheme.matchaGreen,
                                 ),
                               );
-                            }
-                          } else {
-                            // If print failed or was cancelled, keep token number at 0!
-                            if (context.mounted) {
+                            } else {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Print cancelled/failed. Token number not assigned.'),
+                                SnackBar(
+                                  content: Text('Order Checked Out (Token #${order.tokenNumber}). Printer was offline/skipped.'),
                                   backgroundColor: Colors.orange,
                                 ),
                               );
