@@ -126,7 +126,6 @@ class ReceiptPreviewDialog extends StatelessWidget {
                     onPressed: () {
                       final printerProvider = Provider.of<PrinterProvider>(context, listen: false);
                       BluetoothPrinterService.printReceipt(
-                        context: context,
                         order: order,
                         config: config,
                         systemPrinters: printerProvider.systemPrinters,

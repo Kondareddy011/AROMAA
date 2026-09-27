@@ -12,6 +12,7 @@ class SalesProvider with ChangeNotifier {
 
   List<OrderModel> _orders = [];
   bool _isLoading = false;
+  bool _isFetching = false;
   BusinessProfile _businessProfile = BusinessProfile();
   TokenCustomization _tokenCustomization = TokenCustomization();
 
@@ -26,63 +27,88 @@ class SalesProvider with ChangeNotifier {
   }
 
   Future<void> loadOrders({bool silent = false}) async {
+    if (_isFetching) return;
+    _isFetching = true;
+
     if (!silent) {
       _isLoading = true;
       notifyListeners();
     }
     
     try {
+      // First load quickly from local storage if memory is empty
+      if (_orders.isEmpty) {
+        _orders = await _storageService.getOrders();
+        _orders.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+        notifyListeners();
+      }
+
       // Load from remote database
       final remoteOrders = await _tursoService.getOrders();
       
-      // Merge remote orders with local orders so completed local orders are never reverted back to Billed
-      final Map<String, OrderModel> merged = {};
-      for (var r in remoteOrders) {
-        merged[r.id] = r;
-      }
-      
-      for (var l in _orders) {
-        if (merged.containsKey(l.id)) {
-          // If local order is marked Completed but remote is still Billed, keep local Completed!
-          if (l.status == 'Completed' && merged[l.id]!.status == 'Billed') {
-            merged[l.id] = merged[l.id]!.copyWith(status: 'Completed');
-          }
-        } else {
-          merged[l.id] = l;
+      if (remoteOrders.isNotEmpty) {
+        // Merge remote orders with local orders so completed local orders are never reverted back to Billed
+        final Map<String, OrderModel> merged = {};
+        for (var r in remoteOrders) {
+          merged[r.id] = r;
         }
+        
+        for (var l in _orders) {
+          if (merged.containsKey(l.id)) {
+            // If local order is marked Completed but remote is still Billed, keep local Completed!
+            if (l.status == 'Completed' && merged[l.id]!.status == 'Billed') {
+              merged[l.id] = merged[l.id]!.copyWith(status: 'Completed');
+            }
+          } else {
+            merged[l.id] = l;
+          }
+        }
+        
+        _orders = merged.values.toList();
+        _orders.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+        // Save cache asynchronously in background without blocking refresh UI
+        _storageService.saveOrders(_orders);
       }
-      
-      _orders = merged.values.toList();
-      _orders.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-      await _storageService.saveOrders(_orders); // Cache locally
     } catch (e) {
-      debugPrint('Turso error fetching orders, falling back to cache: $e');
+      debugPrint('SalesProvider error fetching orders, falling back to cache: $e');
       if (_orders.isEmpty) {
         _orders = await _storageService.getOrders();
         _orders.sort((a, b) => b.timestamp.compareTo(a.timestamp));
       }
+    } finally {
+      _isFetching = false;
+      _isLoading = false;
+      notifyListeners();
     }
-    
-    _isLoading = false;
-    notifyListeners();
   }
 
   Future<void> loadSettings() async {
-    // Try business profile from Turso
-    final remoteProfile = await _tursoService.getBusinessProfile();
-    if (remoteProfile != null) {
-      _businessProfile = remoteProfile;
-      await _storageService.saveBusinessProfile(remoteProfile);
-    } else {
-      _businessProfile = await _storageService.getBusinessProfile();
-    }
+    try {
+      // Fetch all settings in a single fast HTTP batch request
+      final settingsMap = await _tursoService.getAllSettings();
+      
+      if (settingsMap.containsKey('business_profile')) {
+        final profJson = settingsMap['business_profile'];
+        if (profJson is Map<String, dynamic>) {
+          _businessProfile = BusinessProfile.fromJson(profJson);
+          _storageService.saveBusinessProfile(_businessProfile);
+        }
+      } else {
+        _businessProfile = await _storageService.getBusinessProfile();
+      }
 
-    // Try token customization from Turso
-    final remoteToken = await _tursoService.getTokenCustomization();
-    if (remoteToken != null) {
-      _tokenCustomization = remoteToken;
-      await _storageService.saveTokenCustomization(remoteToken);
-    } else {
+      if (settingsMap.containsKey('token_customization')) {
+        final tokJson = settingsMap['token_customization'];
+        if (tokJson is Map<String, dynamic>) {
+          _tokenCustomization = TokenCustomization.fromJson(tokJson);
+          _storageService.saveTokenCustomization(_tokenCustomization);
+        }
+      } else {
+        _tokenCustomization = await _storageService.getTokenCustomization();
+      }
+    } catch (e) {
+      debugPrint('Error loading batch settings: $e');
+      _businessProfile = await _storageService.getBusinessProfile();
       _tokenCustomization = await _storageService.getTokenCustomization();
     }
     notifyListeners();
@@ -106,11 +132,10 @@ class SalesProvider with ChangeNotifier {
     _orders.insert(0, newOrder);
     notifyListeners();
     _storageService.saveOrders(_orders);
-    try {
-      await _tursoService.saveOrder(newOrder);
-    } catch (e) {
-      debugPrint('Turso error saving order: $e');
-    }
+    // Asynchronous fire-and-forget cloud sync so checkout is 100% instant
+    _tursoService.saveOrder(newOrder).catchError((e) {
+      debugPrint('Turso background error saving order: $e');
+    });
   }
 
   Future<void> updateOrderToken(String orderId, int tokenNumber, String billNumber) async {
@@ -123,11 +148,9 @@ class SalesProvider with ChangeNotifier {
       _orders[index] = updatedOrder;
       notifyListeners();
       _storageService.saveOrders(_orders);
-      try {
-        await _tursoService.saveOrder(updatedOrder);
-      } catch (e) {
-        debugPrint('Turso error updating token: $e');
-      }
+      _tursoService.saveOrder(updatedOrder).catchError((e) {
+        debugPrint('Turso background error updating token: $e');
+      });
     }
   }
 
@@ -282,11 +305,9 @@ class SalesProvider with ChangeNotifier {
       _orders[index] = updatedOrder;
       notifyListeners();
       _storageService.saveOrders(_orders);
-      try {
-        await _tursoService.updateOrderStatus(orderId, newStatus);
-      } catch (e) {
-        debugPrint('Turso error updating order status: $e');
-      }
+      _tursoService.updateOrderStatus(orderId, newStatus).catchError((e) {
+        debugPrint('Turso background error updating order status: $e');
+      });
     }
   }
 
@@ -298,11 +319,9 @@ class SalesProvider with ChangeNotifier {
     }
     notifyListeners();
     _storageService.saveOrders(_orders);
-    try {
-      await _tursoService.markAllBilledAsCompleted();
-    } catch (e) {
-      debugPrint('Turso error marking all billed completed: $e');
-    }
+    _tursoService.markAllBilledAsCompleted().catchError((e) {
+      debugPrint('Turso background error marking all billed completed: $e');
+    });
   }
 
   int getNextDailyBillNumber(String lastResetIso) {

@@ -12,27 +12,36 @@ class BluetoothPermissionDialog extends StatelessWidget {
   static Future<bool> ensurePermissionWithPopup(BuildContext context) async {
     if (!Platform.isAndroid && !Platform.isIOS) return true;
 
-    // Check if permissions are already granted
-    final scanStatus = await Permission.bluetoothScan.status;
-    final connectStatus = await Permission.bluetoothConnect.status;
-    final locStatus = await Permission.locationWhenInUse.status;
+    try {
+      // Check if permissions are already granted
+      final scanStatus = await Permission.bluetoothScan.status;
+      final connectStatus = await Permission.bluetoothConnect.status;
+      final locStatus = await Permission.locationWhenInUse.status;
 
-    final isFullyGranted = (scanStatus.isGranted && connectStatus.isGranted) || locStatus.isGranted;
+      final isFullyGranted = (scanStatus.isGranted && connectStatus.isGranted) || locStatus.isGranted;
 
-    if (isFullyGranted) {
+      if (isFullyGranted) {
+        return true;
+      }
+    } catch (e) {
+      debugPrint('Permission status check error: $e');
       return true;
     }
 
     if (!context.mounted) return false;
 
     // Show interactive custom Allow / Deny dialog
-    final bool? userChoice = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => const BluetoothPermissionDialog(),
-    );
+    try {
+      final bool? userChoice = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => const BluetoothPermissionDialog(),
+      );
 
-    return userChoice ?? false;
+      return userChoice ?? false;
+    } catch (_) {
+      return false;
+    }
   }
 
   @override

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:image_picker/image_picker.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -56,30 +57,40 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
     _tabController = TabController(length: 4, vsync: this);
     _tabController.addListener(_onTabChanged);
 
-    // Setup 5-second auto-refresh timer for orders
-    _refreshTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+    // Setup background auto-refresh timer for orders (gentle 45-second interval in silent mode)
+    _refreshTimer = Timer.periodic(const Duration(seconds: 45), (timer) {
       if (mounted) {
-        Provider.of<SalesProvider>(context, listen: false).loadOrders();
+        Provider.of<SalesProvider>(context, listen: false).loadOrders(silent: true);
       }
     });
 
-    // Force load/sync the menu items from remote Firestore online when Owner Portal opens
+    // Load initial data in background immediately
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<MenuProvider>(context, listen: false).loadMenuItems(forceOnline: true);
+      if (mounted) {
+        Provider.of<SalesProvider>(context, listen: false).loadOrders(silent: true);
+        Provider.of<MenuProvider>(context, listen: false).loadMenuItems(forceOnline: false);
+      }
     });
   }
 
   void _onTabChanged() {
-    if (_tabController.index == 3 && !_tabController.indexIsChanging) {
-      _autoScanAndConnectPrinters();
+    if (!_tabController.indexIsChanging) {
+      if (_tabController.index == 0 || _tabController.index == 2) {
+        Provider.of<SalesProvider>(context, listen: false).loadOrders(silent: true);
+      } else if (_tabController.index == 3) {
+        _autoScanAndConnectPrinters();
+      }
     }
   }
 
   void _autoScanAndConnectPrinters() {
+    if (!Platform.isAndroid && !Platform.isIOS) return;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
       final printerProvider = Provider.of<PrinterProvider>(context, listen: false);
       if (!printerProvider.isScanning) {
         await printerProvider.scanBluetoothDevices();
+        if (!mounted) return;
         final config = printerProvider.config;
         if (!config.isConnected && config.macAddress.isNotEmpty && config.macAddress != '00:11:22:33:44:55') {
           final hasSaved = printerProvider.discoveredDevices.any((d) => d['address'] == config.macAddress);
@@ -225,8 +236,10 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
 
     return RefreshIndicator(
       onRefresh: () async {
-        await sales.loadOrders();
-        await sales.loadSettings();
+        await Future.wait([
+          sales.loadOrders(silent: true),
+          sales.loadSettings(),
+        ]);
       },
       color: AppTheme.primaryAmber,
       child: SingleChildScrollView(
@@ -1332,7 +1345,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
 
     if (sales.orders.isEmpty) {
       return RefreshIndicator(
-        onRefresh: () => sales.loadOrders(),
+        onRefresh: () => sales.loadOrders(silent: true),
         color: AppTheme.primaryAmber,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -1373,7 +1386,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> with Single
     }
 
     return RefreshIndicator(
-      onRefresh: () => sales.loadOrders(),
+      onRefresh: () => sales.loadOrders(silent: true),
       color: AppTheme.primaryAmber,
       child: Column(
         children: [

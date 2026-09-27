@@ -30,9 +30,9 @@ class _StaffPOSScreenState extends State<StaffPOSScreen> {
   @override
   void initState() {
     super.initState();
-    _refreshTimer = Timer.periodic(const Duration(seconds: 20), (timer) {
+    // Gentle 60-second background sync for orders without disturbing the active billing screen
+    _refreshTimer = Timer.periodic(const Duration(seconds: 60), (timer) {
       if (mounted) {
-        Provider.of<MenuProvider>(context, listen: false).loadMenuItems(forceOnline: true);
         Provider.of<SalesProvider>(context, listen: false).loadOrders(silent: true);
       }
     });

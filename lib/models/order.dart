@@ -17,8 +17,14 @@ class OrderItem {
   double get totalPrice => unitPrice * quantity;
 
   Map<String, dynamic> toJson() {
+    final itemJson = item.toJson();
+    final img = itemJson['imageUrl']?.toString() ?? '';
+    // Strip large base64 or data URLs from order receipts to keep order records lightweight (<1KB)
+    if (img.startsWith('data:image/') || img.length > 200) {
+      itemJson['imageUrl'] = '';
+    }
     return {
-      'item': item.toJson(),
+      'item': itemJson,
       'quantity': quantity,
       'variant': variant,
       'notes': notes,
@@ -26,11 +32,38 @@ class OrderItem {
   }
 
   factory OrderItem.fromJson(Map<String, dynamic> json) {
+    MenuItem parsedItem;
+    try {
+      if (json['item'] is Map<String, dynamic>) {
+        parsedItem = MenuItem.fromJson(json['item'] as Map<String, dynamic>);
+      } else if (json['item'] is Map) {
+        parsedItem = MenuItem.fromJson(Map<String, dynamic>.from(json['item'] as Map));
+      } else {
+        parsedItem = MenuItem(
+          id: (json['itemId'] ?? json['id'] ?? 'item_unknown').toString(),
+          name: (json['name'] ?? json['itemName'] ?? 'Unknown Item').toString(),
+          category: (json['category'] ?? 'General').toString(),
+          price: (json['price'] as num?)?.toDouble() ?? 0.0,
+          description: '',
+          itemCode: 'ARM-00',
+        );
+      }
+    } catch (_) {
+      parsedItem = MenuItem(
+        id: 'item_unknown',
+        name: 'Item',
+        category: 'General',
+        price: 0.0,
+        description: '',
+        itemCode: 'ARM-00',
+      );
+    }
+
     return OrderItem(
-      item: MenuItem.fromJson(json['item'] as Map<String, dynamic>),
-      quantity: json['quantity'] as int? ?? 1,
-      variant: json['variant'] as String? ?? 'Regular',
-      notes: json['notes'] as String? ?? '',
+      item: parsedItem,
+      quantity: (json['quantity'] as num?)?.toInt() ?? 1,
+      variant: (json['variant'] ?? 'Regular').toString(),
+      notes: (json['notes'] ?? '').toString(),
     );
   }
 }
@@ -117,22 +150,45 @@ class OrderModel {
   }
 
   factory OrderModel.fromJson(Map<String, dynamic> json) {
+    final rawId = (json['id'] ?? '').toString();
+    final rawBill = (json['billNumber'] ?? rawId).toString();
+    
+    // Safely parse items list
+    final List<OrderItem> parsedItems = [];
+    if (json['items'] is List) {
+      for (var item in (json['items'] as List)) {
+        try {
+          if (item is Map<String, dynamic>) {
+            parsedItems.add(OrderItem.fromJson(item));
+          } else if (item is Map) {
+            parsedItems.add(OrderItem.fromJson(Map<String, dynamic>.from(item)));
+          }
+        } catch (_) {}
+      }
+    }
+
+    DateTime parsedDate;
+    try {
+      final tsStr = json['timestamp']?.toString();
+      parsedDate = tsStr != null ? (DateTime.tryParse(tsStr)?.toLocal() ?? DateTime.now()) : DateTime.now();
+    } catch (_) {
+      parsedDate = DateTime.now();
+    }
+
     return OrderModel(
-      id: json['id'] as String,
-      billNumber: json['billNumber'] as String? ?? json['id'] as String,
-      tokenNumber: json['tokenNumber'] as int? ?? 1,
-      items: (json['items'] as List<dynamic>)
-          .map((e) => OrderItem.fromJson(e as Map<String, dynamic>))
-          .toList(),
-      subtotal: (json['subtotal'] as num).toDouble(),
-      taxAmount: (json['taxAmount'] as num).toDouble(),
-      discountAmount: (json['discountAmount'] as num).toDouble(),
-      totalAmount: (json['totalAmount'] as num).toDouble(),
-      paymentMethod: json['paymentMethod'] as String,
-      orderType: json['orderType'] as String? ?? 'Dine-In',
-      timestamp: DateTime.parse(json['timestamp'] as String),
-      staffName: json['staffName'] as String? ?? 'Staff Counter',
-      status: json['status'] as String? ?? 'Completed',
+      id: rawId.isNotEmpty ? rawId : 'order_${DateTime.now().millisecondsSinceEpoch}',
+      billNumber: rawBill.isNotEmpty ? rawBill : 'ARM-001',
+      tokenNumber: (json['tokenNumber'] as num?)?.toInt() ?? 1,
+      items: parsedItems,
+      subtotal: (json['subtotal'] as num?)?.toDouble() ?? 0.0,
+      taxAmount: (json['taxAmount'] as num?)?.toDouble() ?? 0.0,
+      discountAmount: (json['discountAmount'] as num?)?.toDouble() ?? 0.0,
+      totalAmount: (json['totalAmount'] as num?)?.toDouble() ?? 0.0,
+      paymentMethod: (json['paymentMethod'] ?? 'UPI / QR').toString(),
+      orderType: (json['orderType'] ?? 'Dine-In').toString(),
+      timestamp: parsedDate,
+      staffName: (json['staffName'] ?? 'Staff Counter').toString(),
+      status: (json['status'] ?? 'Completed').toString(),
     );
   }
 }

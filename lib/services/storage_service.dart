@@ -56,11 +56,14 @@ class StorageService {
     }
   }
 
-  // Save Orders
+  // Save Orders (Cache up to 500 recent orders locally)
   Future<void> saveOrders(List<OrderModel> orders) async {
-    final prefs = await SharedPreferences.getInstance();
-    final rawList = orders.map((e) => e.toJson()).toList();
-    await prefs.setString(_keyOrders, jsonEncode(rawList));
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final listToSave = orders.length > 500 ? orders.sublist(0, 500) : orders;
+      final rawList = listToSave.map((e) => e.toJson()).toList();
+      await prefs.setString(_keyOrders, jsonEncode(rawList));
+    } catch (_) {}
   }
 
   // Clear Orders History

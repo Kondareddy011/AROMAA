@@ -126,15 +126,18 @@ class PrinterProvider with ChangeNotifier {
   }
 
   Future<bool> printReceiptDirectly(OrderModel order) async {
-    final active = await BluetoothPrinterService.isConnectionActive();
-    if (!active && _config.macAddress.isNotEmpty && _config.macAddress != '00:11:22:33:44:55') {
-      await autoConnectPreviousDevice();
-    }
-    
     final bytes = BluetoothPrinterService.buildEscPosBytes(
       order: order,
       config: _config,
     );
-    return await BluetoothPrinterService.printRealEscPosBytes(bytes);
+
+    // Write bytes immediately to active socket
+    bool success = await BluetoothPrinterService.printRealEscPosBytes(bytes);
+    if (!success && _config.macAddress.isNotEmpty && _config.macAddress != '00:11:22:33:44:55') {
+      // If socket dropped, attempt quick reconnect and retry write
+      await autoConnectPreviousDevice();
+      success = await BluetoothPrinterService.printRealEscPosBytes(bytes);
+    }
+    return success;
   }
 }

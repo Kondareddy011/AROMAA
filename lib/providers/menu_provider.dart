@@ -11,6 +11,7 @@ class MenuProvider with ChangeNotifier {
   String _selectedCategory = 'All';
   String _searchQuery = '';
   bool _isLoading = false;
+  bool _isFetching = false;
 
   List<MenuItem> get items => _items;
   String get selectedCategory => _selectedCategory;
@@ -40,6 +41,9 @@ class MenuProvider with ChangeNotifier {
   }
 
   Future<void> loadMenuItems({bool forceOnline = false}) async {
+    if (_isFetching) return;
+    _isFetching = true;
+
     _isLoading = true;
     notifyListeners();
 
@@ -48,100 +52,100 @@ class MenuProvider with ChangeNotifier {
       'item_7', 'item_8', 'item_9', 'item_10', 'item_11', 'item_12'
     };
 
-    if (!forceOnline) {
-      // Offline mode: load strictly from local storage cache
-      _customCategories = await _storageService.getCustomCategories();
-      if (_customCategories.isEmpty) {
-        _customCategories = [
-          'Special Chai',
-          'Cold Teas',
-          'Green & Herbal',
-          'Snacks & Bites',
-          'Desserts',
-        ];
-        await _storageService.saveCustomCategories(_customCategories);
-      }
-
-      _items = await _storageService.getMenuItems();
-      _items.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
-      
-      // Auto-assign sequential sort orders if needed
-      bool needsReindex = false;
-      for (int i = 0; i < _items.length; i++) {
-        if (_items[i].sortOrder != i) {
-          _items[i] = _items[i].copyWith(sortOrder: i);
-          needsReindex = true;
+    try {
+      if (!forceOnline) {
+        // Offline mode: load strictly from local storage cache
+        _customCategories = await _storageService.getCustomCategories();
+        if (_customCategories.isEmpty) {
+          _customCategories = [
+            'Special Chai',
+            'Cold Teas',
+            'Green & Herbal',
+            'Snacks & Bites',
+            'Desserts',
+          ];
+          await _storageService.saveCustomCategories(_customCategories);
         }
-      }
-      if (needsReindex) {
-        await _storageService.saveMenuItems(_items);
-      }
 
-      // As a fallback if local is empty, try once from remote Turso
-      if (_items.isEmpty) {
+        _items = await _storageService.getMenuItems();
+        _items.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+        
+        // Auto-assign sequential sort orders if needed
+        bool needsReindex = false;
+        for (int i = 0; i < _items.length; i++) {
+          if (_items[i].sortOrder != i) {
+            _items[i] = _items[i].copyWith(sortOrder: i);
+            needsReindex = true;
+          }
+        }
+        if (needsReindex) {
+          await _storageService.saveMenuItems(_items);
+        }
+
+        // As a fallback if local is empty, try once from remote Turso
+        if (_items.isEmpty) {
+          try {
+            final remoteItems = await _tursoService.getMenuItems();
+            if (remoteItems.isNotEmpty) {
+              _items = remoteItems;
+              _items.removeWhere((item) => demoItemIds.contains(item.id));
+              _items.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+              for (int i = 0; i < _items.length; i++) {
+                _items[i] = _items[i].copyWith(sortOrder: i);
+              }
+              await _storageService.saveMenuItems(_items);
+            }
+          } catch (e) {
+            debugPrint('Local fallback Turso error: $e');
+          }
+        }
+      } else {
+        // Online mode: force fetch from remote Turso database and sync to offline storage
+        try {
+          final remoteCats = await _tursoService.getCustomCategories();
+          if (remoteCats.isNotEmpty) {
+            _customCategories = remoteCats;
+            await _storageService.saveCustomCategories(_customCategories);
+          }
+        } catch (e) {
+          debugPrint('Turso fetch categories error: $e');
+        }
+
         try {
           final remoteItems = await _tursoService.getMenuItems();
           if (remoteItems.isNotEmpty) {
             _items = remoteItems;
-            _items.removeWhere((item) => demoItemIds.contains(item.id));
             _items.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
-            for (int i = 0; i < _items.length; i++) {
-              _items[i] = _items[i].copyWith(sortOrder: i);
+            final demoItems = _items.where((item) => demoItemIds.contains(item.id)).toList();
+            if (demoItems.isNotEmpty) {
+              _items.removeWhere((item) => demoItemIds.contains(item.id));
+              for (int i = 0; i < _items.length; i++) {
+                _items[i] = _items[i].copyWith(sortOrder: i);
+              }
+              await _storageService.saveMenuItems(_items);
+              for (var demo in demoItems) {
+                _tursoService.deleteMenuItem(demo.id); // Non-blocking
+              }
+            } else {
+              for (int i = 0; i < _items.length; i++) {
+                if (_items[i].sortOrder != i) {
+                  _items[i] = _items[i].copyWith(sortOrder: i);
+                }
+              }
+              await _storageService.saveMenuItems(_items);
             }
-            await _storageService.saveMenuItems(_items);
           }
         } catch (e) {
-          debugPrint('Local fallback Turso error: $e');
+          debugPrint('Turso fetch menu items error: $e');
         }
       }
-    } else {
-      // Online mode: force fetch from remote Turso database and sync to offline storage
-      try {
-        final remoteCats = await _tursoService.getCustomCategories();
-        if (remoteCats.isNotEmpty) {
-          _customCategories = remoteCats;
-          await _storageService.saveCustomCategories(_customCategories);
-        }
-      } catch (e) {
-        debugPrint('Turso fetch categories error: $e');
-      }
-
-      try {
-        final remoteItems = await _tursoService.getMenuItems();
-        _items = remoteItems;
-        _items.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
-        final demoItems = _items.where((item) => demoItemIds.contains(item.id)).toList();
-        if (demoItems.isNotEmpty) {
-          _items.removeWhere((item) => demoItemIds.contains(item.id));
-          for (int i = 0; i < _items.length; i++) {
-            _items[i] = _items[i].copyWith(sortOrder: i);
-          }
-          await _storageService.saveMenuItems(_items);
-          for (var demo in demoItems) {
-            await _tursoService.deleteMenuItem(demo.id);
-          }
-        } else {
-          bool needsReindex = false;
-          for (int i = 0; i < _items.length; i++) {
-            if (_items[i].sortOrder != i) {
-              _items[i] = _items[i].copyWith(sortOrder: i);
-              needsReindex = true;
-            }
-          }
-          await _storageService.saveMenuItems(_items);
-          if (needsReindex) {
-            for (var item in _items) {
-              await _tursoService.saveMenuItem(item);
-            }
-          }
-        }
-      } catch (e) {
-        debugPrint('Turso fetch menu items error: $e');
-      }
+    } catch (e) {
+      debugPrint('MenuProvider general load error: $e');
+    } finally {
+      _isFetching = false;
+      _isLoading = false;
+      notifyListeners();
     }
-
-    _isLoading = false;
-    notifyListeners();
   }
 
   List<String> get customCategories => _customCategories;

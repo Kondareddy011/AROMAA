@@ -27,72 +27,90 @@ class TursoService {
   }
 
   List<Map<String, dynamic>> _parseRows(Map<String, dynamic> result) {
-    final cols = result['cols'] as List<dynamic>;
-    final rows = result['rows'] as List<dynamic>;
+    try {
+      final cols = (result['cols'] as List<dynamic>?) ?? [];
+      final rows = (result['rows'] as List<dynamic>?) ?? [];
 
-    return rows.map((row) {
-      final rowMap = <String, dynamic>{};
-      final values = row as List<dynamic>;
-      for (int i = 0; i < cols.length; i++) {
-        final colName = cols[i]['name'] as String;
-        final valObj = values[i] as Map<String, dynamic>;
-        final type = valObj['type'] as String;
+      return rows.map((row) {
+        final rowMap = <String, dynamic>{};
+        if (row is! List) return rowMap;
+        final values = row;
+        for (int i = 0; i < cols.length && i < values.length; i++) {
+          final colName = (cols[i]['name'] ?? 'col_$i').toString();
+          final valObj = values[i];
+          if (valObj is! Map) {
+            rowMap[colName] = valObj;
+            continue;
+          }
+          final type = (valObj['type'] ?? 'null').toString();
 
-        dynamic val;
-        if (type == 'null') {
-          val = null;
-        } else if (type == 'integer') {
-          val = int.tryParse(valObj['value']?.toString() ?? '') ?? 0;
-        } else if (type == 'float') {
-          final raw = valObj['value'];
-          val = raw is num ? raw.toDouble() : (double.tryParse(raw?.toString() ?? '') ?? 0.0);
-        } else if (type == 'text') {
-          val = valObj['value']?.toString();
-        } else if (type == 'blob') {
-          val = valObj['base64']?.toString();
+          dynamic val;
+          if (type == 'null') {
+            val = null;
+          } else if (type == 'integer') {
+            val = int.tryParse(valObj['value']?.toString() ?? '') ?? 0;
+          } else if (type == 'float') {
+            final raw = valObj['value'];
+            val = raw is num ? raw.toDouble() : (double.tryParse(raw?.toString() ?? '') ?? 0.0);
+          } else if (type == 'text') {
+            val = valObj['value']?.toString();
+          } else if (type == 'blob') {
+            val = valObj['base64']?.toString();
+          }
+
+          rowMap[colName] = val;
         }
-
-        rowMap[colName] = val;
-      }
-      return rowMap;
-    }).toList();
+        return rowMap;
+      }).toList();
+    } catch (e) {
+      debugPrint('Error parsing Turso rows: $e');
+      return [];
+    }
   }
 
   Future<dynamic> _executePipeline(List<Map<String, dynamic>> requests) async {
-    var baseUrl = await TursoConfig.getDatabaseUrl();
-    final token = await TursoConfig.getAuthToken();
+    try {
+      var baseUrl = await TursoConfig.getDatabaseUrl();
+      final token = await TursoConfig.getAuthToken();
 
-    if (baseUrl.startsWith('libsql://')) {
-      baseUrl = 'https://${baseUrl.substring(9)}';
-    }
-
-    final url = Uri.parse('$baseUrl/v2/pipeline');
-    final response = await http.post(
-      url,
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode({
-        'requests': requests,
-      }),
-    );
-
-    if (response.statusCode != 200) {
-      throw Exception('Turso request failed with status: ${response.statusCode}, body: ${response.body}');
-    }
-
-    final data = jsonDecode(response.body);
-    final results = data['results'] as List<dynamic>;
-    
-    // Check if any request failed
-    for (var res in results) {
-      if (res['type'] == 'error') {
-        throw Exception('Turso statement execution error: ${res['error'] ?? res}');
+      if (baseUrl.startsWith('libsql://')) {
+        baseUrl = 'https://${baseUrl.substring(9)}';
       }
-    }
 
-    return data;
+      final url = Uri.parse('$baseUrl/v2/pipeline');
+      final response = await http.post(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'requests': requests,
+        }),
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode != 200) {
+        throw Exception('Turso request failed with status: ${response.statusCode}, body: ${response.body}');
+      }
+
+      final data = jsonDecode(response.body);
+      if (data is! Map<String, dynamic>) {
+        throw Exception('Invalid Turso response format');
+      }
+      final results = (data['results'] as List<dynamic>?) ?? [];
+      
+      // Check if any request failed
+      for (var res in results) {
+        if (res is Map && res['type'] == 'error') {
+          throw Exception('Turso statement execution error: ${res['error'] ?? res}');
+        }
+      }
+
+      return data;
+    } catch (e) {
+      debugPrint('Turso pipeline error: $e');
+      rethrow;
+    }
   }
 
   Future<void> initDatabase() async {
@@ -175,7 +193,14 @@ class TursoService {
         }
       ]);
 
-      final result = pipeline['results'][0]['response']['result'] as Map<String, dynamic>;
+      if (pipeline['results'] == null || (pipeline['results'] as List).isEmpty) {
+        return [];
+      }
+      final firstResult = pipeline['results'][0];
+      if (firstResult['response'] == null || firstResult['response']['result'] == null) {
+        return [];
+      }
+      final result = firstResult['response']['result'] as Map<String, dynamic>;
       final parsed = _parseRows(result);
       return parsed.map((row) {
         // Map SQLite integer boolean back to dynamic bool
@@ -184,7 +209,7 @@ class TursoService {
       }).toList();
     } catch (e) {
       debugPrint('Turso error fetching menu items: $e');
-      rethrow;
+      return [];
     }
   }
 
@@ -242,13 +267,13 @@ class TursoService {
 
   // --- ORDER METHODS --- //
 
-  Future<List<OrderModel>> getOrders() async {
+  Future<List<OrderModel>> getOrders({int limit = 1000}) async {
     try {
       final pipeline = await _executePipeline([
         {
           'type': 'execute',
           'stmt': {
-            'sql': 'SELECT * FROM orders ORDER BY timestamp DESC;'
+            'sql': 'SELECT * FROM orders ORDER BY timestamp DESC LIMIT $limit;'
           }
         },
         {
@@ -256,17 +281,40 @@ class TursoService {
         }
       ]);
 
-      final result = pipeline['results'][0]['response']['result'] as Map<String, dynamic>;
+      if (pipeline['results'] == null || (pipeline['results'] as List).isEmpty) {
+        return [];
+      }
+      final firstResult = pipeline['results'][0];
+      if (firstResult['response'] == null || firstResult['response']['result'] == null) {
+        return [];
+      }
+
+      final result = firstResult['response']['result'] as Map<String, dynamic>;
       final parsed = _parseRows(result);
-      return parsed.map((row) {
-        // Decode nested items list which was stored as JSON string
-        final String rawItems = row['items'] as String;
-        row['items'] = jsonDecode(rawItems);
-        return OrderModel.fromJson(row);
-      }).toList();
+      final List<OrderModel> orders = [];
+      
+      for (var row in parsed) {
+        try {
+          // Safely decode nested items list
+          final rawItems = row['items'];
+          if (rawItems is String && rawItems.isNotEmpty) {
+            try {
+              row['items'] = jsonDecode(rawItems);
+            } catch (_) {
+              row['items'] = [];
+            }
+          } else if (rawItems is! List) {
+            row['items'] = [];
+          }
+          orders.add(OrderModel.fromJson(row));
+        } catch (itemError) {
+          debugPrint('Skipping malformed order row: $itemError');
+        }
+      }
+      return orders;
     } catch (e) {
       debugPrint('Turso error fetching orders: $e');
-      rethrow;
+      return [];
     }
   }
 
@@ -423,6 +471,48 @@ class TursoService {
   }
 
   // --- SETTINGS METHODS --- //
+
+  Future<Map<String, dynamic>> getAllSettings() async {
+    try {
+      final pipeline = await _executePipeline([
+        {
+          'type': 'execute',
+          'stmt': {
+            'sql': "SELECT key, value FROM settings WHERE key IN ('business_profile', 'token_customization', 'custom_categories');"
+          }
+        },
+        {
+          'type': 'close'
+        }
+      ]);
+
+      if (pipeline['results'] == null || (pipeline['results'] as List).isEmpty) {
+        return {};
+      }
+      final firstResult = pipeline['results'][0];
+      if (firstResult['response'] == null || firstResult['response']['result'] == null) {
+        return {};
+      }
+      final result = firstResult['response']['result'] as Map<String, dynamic>;
+      final parsed = _parseRows(result);
+      final Map<String, dynamic> settingsMap = {};
+      for (var row in parsed) {
+        final key = row['key']?.toString();
+        final val = row['value']?.toString();
+        if (key != null && val != null) {
+          try {
+            settingsMap[key] = jsonDecode(val);
+          } catch (_) {
+            settingsMap[key] = val;
+          }
+        }
+      }
+      return settingsMap;
+    } catch (e) {
+      debugPrint('Turso error fetching batch settings: $e');
+      return {};
+    }
+  }
 
   Future<BusinessProfile?> getBusinessProfile() async {
     try {

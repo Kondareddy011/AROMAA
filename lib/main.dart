@@ -10,9 +10,28 @@ import 'providers/sales_provider.dart';
 import 'theme/app_theme.dart';
 import 'views/login_screen.dart';
 
+import 'dart:ui';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await TursoService().initDatabase();
+
+  // Global uncaught Flutter error handler
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+    debugPrint('Uncaught Flutter Error: ${details.exception}');
+  };
+
+  // Global asynchronous platform error handler to prevent crashing
+  PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
+    debugPrint('Uncaught Platform Async Error: $error\n$stack');
+    return true; // Handled, prevents app crash
+  };
+
+  // Initialize Turso database schema in background without blocking app startup
+  TursoService().initDatabase().catchError((e) {
+    debugPrint('Background Turso init warning: $e');
+  });
+
   runApp(const AromaaCafeApp());
 }
 

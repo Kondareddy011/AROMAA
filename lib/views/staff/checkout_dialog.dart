@@ -365,7 +365,7 @@ class _CheckoutDialogState extends State<CheckoutDialog> {
                         padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
                       onPressed: () async {
-                        // 1. Create order with correct token number & bill number immediately
+                        // 1. Create order with correct token number & bill number instantly
                         final order = await posProvider.checkout(
                           staffName: authProvider.activeStaffName,
                           salesProvider: salesProvider,
@@ -374,39 +374,43 @@ class _CheckoutDialogState extends State<CheckoutDialog> {
 
                         if (!context.mounted) return;
                         if (order != null) {
-                          // 2. Close checkout dialog immediately
+                          // 2. Capture messenger and close checkout dialog instantly (0ms lag)
+                          final messenger = ScaffoldMessenger.of(context);
                           Navigator.pop(context);
 
-                          // 3. Print receipt directly / via Bluetooth
-                          bool printSuccess = false;
-                          if (printerProvider.config.isConnected) {
-                            printSuccess = await printerProvider.printReceiptDirectly(order);
-                          } else {
-                            printSuccess = await BluetoothPrinterService.printReceipt(
-                              context: context,
-                              order: order,
-                              config: printerProvider.config,
-                              systemPrinters: printerProvider.systemPrinters,
-                            );
-                          }
-
-                          if (context.mounted) {
-                            if (printSuccess) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Order Checked Out & Token #${order.tokenNumber} Printed!'),
-                                  backgroundColor: AppTheme.matchaGreen,
-                                ),
-                              );
+                          // 3. Print receipt asynchronously in background
+                          Future(() async {
+                            bool printSuccess = false;
+                            if (printerProvider.config.isConnected) {
+                              printSuccess = await printerProvider.printReceiptDirectly(order);
                             } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Order Checked Out (Token #${order.tokenNumber}). Printer was offline/skipped.'),
-                                  backgroundColor: Colors.orange,
-                                ),
+                              printSuccess = await BluetoothPrinterService.printReceipt(
+                                order: order,
+                                config: printerProvider.config,
+                                systemPrinters: printerProvider.systemPrinters,
                               );
                             }
-                          }
+
+                            try {
+                              if (printSuccess) {
+                                messenger.showSnackBar(
+                                  SnackBar(
+                                    content: Text('Order Checked Out & Token #${order.tokenNumber} Printed!'),
+                                    backgroundColor: AppTheme.matchaGreen,
+                                    duration: const Duration(seconds: 2),
+                                  ),
+                                );
+                              } else {
+                                messenger.showSnackBar(
+                                  SnackBar(
+                                    content: Text('Order Checked Out (Token #${order.tokenNumber}). Printer was offline/skipped.'),
+                                    backgroundColor: Colors.orange,
+                                    duration: const Duration(seconds: 2),
+                                  ),
+                                );
+                              }
+                            } catch (_) {}
+                          });
                         }
                       },
                     ),

@@ -36,29 +36,34 @@ class BluetoothPrinterService {
 
   /// Check if System Bluetooth is ON
   static Future<bool> isBluetoothEnabled() async {
+    if (!Platform.isAndroid && !Platform.isIOS) return false;
     try {
       return await PrintBluetoothThermal.bluetoothEnabled;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('Error checking bluetooth status: $e');
       return false;
     }
   }
 
   /// Check if active connection exists
   static Future<bool> isConnectionActive() async {
+    if (!Platform.isAndroid && !Platform.isIOS) return false;
     try {
       return await PrintBluetoothThermal.connectionStatus;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('Error checking connection status: $e');
       return false;
     }
   }
 
   /// Scan and retrieve REAL paired/discovered Bluetooth devices from the OS Bluetooth adapter
   static Future<List<Map<String, String>>> scanRealBluetoothDevices() async {
+    if (!Platform.isAndroid && !Platform.isIOS) return [];
     try {
       // Request Android runtime permissions for Bluetooth scan & connect
       await requestBluetoothPermissions();
 
-      final bool btOn = await PrintBluetoothThermal.bluetoothEnabled;
+      final bool btOn = await isBluetoothEnabled();
       if (!btOn) {
         return [];
       }
@@ -78,10 +83,14 @@ class BluetoothPrinterService {
 
   /// Connect directly to a real Bluetooth device using MAC address
   static Future<bool> connectRealDevice(String macAddress) async {
+    if (!Platform.isAndroid && !Platform.isIOS) return false;
+    if (macAddress.trim().isEmpty) return false;
     try {
       await requestBluetoothPermissions();
       // Disconnect first to ensure stale connection handles are released
-      await PrintBluetoothThermal.disconnect;
+      try {
+        await PrintBluetoothThermal.disconnect;
+      } catch (_) {}
       await Future.delayed(const Duration(milliseconds: 300));
       final bool result = await PrintBluetoothThermal.connect(macPrinterAddress: macAddress);
       return result;
@@ -93,17 +102,20 @@ class BluetoothPrinterService {
 
   /// Disconnect current real Bluetooth device
   static Future<bool> disconnectRealDevice() async {
+    if (!Platform.isAndroid && !Platform.isIOS) return false;
     try {
       return await PrintBluetoothThermal.disconnect;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('Error disconnecting Bluetooth device: $e');
       return false;
     }
   }
 
   /// Send ESC/POS byte commands directly to connected Bluetooth thermal printer
   static Future<bool> printRealEscPosBytes(List<int> bytes) async {
+    if (!Platform.isAndroid && !Platform.isIOS) return false;
     try {
-      final bool isConnected = await PrintBluetoothThermal.connectionStatus;
+      final bool isConnected = await isConnectionActive();
       if (isConnected) {
         return await PrintBluetoothThermal.writeBytes(bytes);
       }
@@ -278,7 +290,6 @@ class BluetoothPrinterService {
 
   /// Direct print method using Printing plugin (handles thermal printers / system spooler)
   static Future<bool> printReceipt({
-    required BuildContext context,
     required OrderModel order,
     required PrinterConfig config,
     List<Printer>? systemPrinters,
